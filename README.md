@@ -289,6 +289,12 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Déployé en CT 124 (10.1.20.124) du Home Lab : Debian 13,
+  Docker avec imbrication vérifiée, dépôt cloné en HTTPS, image construite,
+  données en `/var/lib/inbox-agent` à l'uid 1000, exécuteur de mise à jour
+  actif. `install.sh` corrigé : répondre « non » à la question des mises à jour
+  ne les désactive pas, le script rapporte donc l'état réel au lieu d'annoncer
+  qu'elles sont désactivées (les trois états sont vérifiés).
 - **22/10/2026** — Licence **AGPL-3.0-or-later** posée (texte officiel de la FSF,
   661 lignes), champ `license` du `package.json` et section « Licence » du
   README. Même licence sur l'ensemble des applications.

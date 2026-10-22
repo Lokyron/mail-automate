@@ -229,7 +229,17 @@ if [ "${rep:-n}" = "o" ] || [ "${rep:-n}" = "O" ]; then
     ok "Depot suivi : ${DEPOT} (canaux stable/beta)"
   fi
 else
-  ok "Mises a jour laissees desactivees. Rejouer ce script pour les ajouter."
+  # Repondre « non » ne DESACTIVE rien : le script n'installe pas le dispositif,
+  # il ne le retire pas. Si celui-ci est deja en place — installation
+  # precedente, ou conteneur prepare a l'avance — annoncer qu'il est desactive
+  # serait faux, et c'est le genre de message qu'on croit sur parole des mois
+  # plus tard. On rapporte donc l'etat reel plutot qu'une supposition.
+  if [ "$(lire UPDATE_ENABLED)" = "true" ] && [ -x /usr/local/bin/inbox-agent-update ]; then
+    unite=$(systemctl is-enabled inbox-agent-update.path 2>/dev/null || echo "absente")
+    ok "Mises a jour DEJA en place, rien n'a change (depot $(lire UPDATE_REPO), unite path : ${unite})."
+  else
+    ok "Mises a jour non installees. Rejouer ce script pour les ajouter."
+  fi
 fi
 
 # ------------------------------------------------------------- demarrage
