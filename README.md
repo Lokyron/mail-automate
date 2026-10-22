@@ -289,6 +289,9 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Licence **AGPL-3.0-or-later** posée (texte officiel de la FSF,
+  661 lignes), champ `license` du `package.json` et section « Licence » du
+  README. Même licence sur l'ensemble des applications.
 - **22/10/2026** — Premier envoi sur le dépôt public `Lokyron/mail-automate`
   (branches `main` et `beta` au même commit, pour que le canal bêta existe).
   Toutes les références au dépôt mises à jour, valeurs d'exemple du `.env`
