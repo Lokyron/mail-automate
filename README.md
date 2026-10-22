@@ -289,6 +289,13 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — L'exécuteur de mise à jour mourait au premier pas sur la
+  cible : `${3//\"/}` dans `etat()` sans valeur par défaut, que le bash 3.2 de
+  macOS tolère et que le bash 5.2 de Debian refuse sous `set -u`. Il ne pouvait
+  donc même pas écrire son fichier d'état. Corrigé, et désormais **testé sur le
+  shell de la cible** — un script système ne se valide pas sur le poste de
+  développement. Rien n'avait été cassé : le script meurt avant de toucher à
+  quoi que ce soit.
 - **22/10/2026** — Mot de passe changeable depuis l'interface, et **changement
   imposé à la première connexion**. L'empreinte vit désormais en base, celle du
   `.env` n'étant plus qu'une amorce : le conteneur est en lecture seule, il ne

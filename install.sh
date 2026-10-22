@@ -257,7 +257,7 @@ if [ "$(lire WRITE_ENABLED)" != "false" ]; then
   avis "WRITE_ENABLED n'est pas a false : l'application pourra ecrire dans la boite."
 fi
 
-docker compose "${profil[@]}" up -d
+docker compose ${profil[@]+"${profil[@]}"} up -d
 ok "Conteneur demarre."
 
 printf 'Attente de la sonde de sante'

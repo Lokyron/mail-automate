@@ -41,8 +41,15 @@ ETAPE=depart
 horodatage() { date -Is 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 etat() { # etat etape [message]
+  # `local msg=${3-}` et non `${3//...}` directement : sous `set -u`, bash 5
+  # refuse de developper un parametre non defini DANS une substitution, la ou
+  # bash 3.2 (celui de macOS) laissait passer. Le script mourait donc des le
+  # premier appel a deux arguments — « line 44: 3: unbound variable » — sans
+  # meme pouvoir ecrire son fichier d'etat. Une regle a en retenir : un script
+  # systeme se teste sur le shell de la CIBLE, pas sur celui du poste.
+  local msg=${3-}
   printf '{"state":"%s","step":"%s","message":"%s","at":"%s"}\n' \
-    "$1" "$2" "${3//\"/}" "$(horodatage)" > "$FICHIER_ETAT"
+    "$1" "$2" "${msg//\"/}" "$(horodatage)" > "$FICHIER_ETAT"
   # Sans ce chown, le fichier appartient a root et l'application — qui tourne en
   # uid 1000 — ne peut plus le reecrire a la demande suivante.
   chown "$APP_UID" "$FICHIER_ETAT" 2>/dev/null || true
