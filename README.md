@@ -372,6 +372,19 @@ c'est l'usage normal de cette application.
   mot de passe en service et la session ouverte n'ont pas été touchés. Reste
   inchangé : `IMAP_ENABLED=false`, donc l'application tourne encore à vide côté
   courrier.
+- **23/10/2026** — **Une mise à jour pouvait se déclarer réussie sans avoir rien
+  remplacé.** Trouvé en vérifiant le déploiement précédent : `VERSION`
+  annonçait le nouveau commit, l'étiquette `latest` pointait la nouvelle image,
+  et le processus qui tournait était **celui d'avant**. Cause : `docker tag` +
+  `compose up -d` ne suffit pas — compose compare la configuration du service,
+  pas l'identifiant de l'image derrière l'étiquette, et répond « Container
+  inbox-agent Running » en laissant l'ancien conteneur en place. La sonde de
+  santé le trouvait alors en bonne santé, forcément, et l'exécuteur écrivait
+  « terminé ». L'exécuteur force désormais la recréation
+  (`--force-recreate app`, le service nommé pour ne pas toucher à Caddy) **et
+  compare l'image du conteneur qui tourne à celle qu'il vient de construire** :
+  si elles diffèrent, c'est un échec et la version précédente est remise. Une
+  sonde dit « ce conteneur répond », jamais « il porte le bon code ».
 - **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
   servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
   peut pas laisser un navigateur servir le script de la version précédente —

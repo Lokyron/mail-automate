@@ -132,7 +132,17 @@ trap - EXIT
 ETAPE=redemarrage
 etat running "$ETAPE"
 docker tag "${IMAGE}:nouveau" "${IMAGE}:latest"
-compose up -d >/dev/null
+# `--force-recreate`, et le service nomme pour ne pas toucher a Caddy.
+#
+# Sans cela, une mise a jour pouvait se declarer REUSSIE sans avoir rien
+# remplace : `compose up -d` compare la configuration du service, pas
+# l'identifiant de l'image derriere l'etiquette. Quand la configuration n'a pas
+# bouge, il repond « Container inbox-agent Running » et laisse l'ANCIEN
+# conteneur en place — puis la sonde de sante le trouve evidemment en bonne
+# sante, et l'executeur ecrit « termine ». Observe en vrai : VERSION annoncait
+# le nouveau commit, l'etiquette `latest` pointait une nouvelle image, et le
+# processus qui tournait etait celui d'avant.
+compose up -d --force-recreate app >/dev/null
 
 # On attend la SONDE DE SANTE, pas le simple fait que le conteneur tourne : un
 # processus qui demarre puis refuse sa configuration serait « running » une
@@ -146,6 +156,16 @@ for _ in $(seq 1 $((ATTENTE_SANTE / 3))); do
   sleep 3
 done
 
+# La sonde ne dit que « ce conteneur repond ». Elle ne dit pas QUEL code il
+# porte : c'est la lecon de la ligne ci-dessus, et elle se verifie plutot que de
+# se supposer. On compare donc l'image du conteneur qui tourne a celle qu'on
+# vient de construire.
+IMAGE_VOULUE=$(docker image inspect --format '{{.Id}}' "${IMAGE}:nouveau" 2>/dev/null || echo inconnue)
+IMAGE_SERVIE=$(docker inspect --format '{{.Image}}' "$CONTENEUR" 2>/dev/null || echo inconnue)
+if [ "$SANTE" = "healthy" ] && [ "$IMAGE_VOULUE" != "$IMAGE_SERVIE" ]; then
+  SANTE="image-non-remplacee"
+fi
+
 if [ "$SANTE" != "healthy" ]; then
   ETAPE=retour_arriere
   etat running "$ETAPE"
@@ -155,7 +175,10 @@ if [ "$SANTE" != "healthy" ]; then
   if docker image inspect "${IMAGE}:precedent" >/dev/null 2>&1; then
     docker tag "${IMAGE}:precedent" "${IMAGE}:latest"
   fi
-  compose up -d >/dev/null || true
+  compose up -d --force-recreate app >/dev/null || true
+  if [ "$SANTE" = "image-non-remplacee" ]; then
+    echec "le conteneur n a pas ete remplace par la nouvelle image, la precedente a ete remise"
+  fi
   echec "la nouvelle version ne s est pas declaree en bonne sante, la precedente a ete remise"
 fi
 
