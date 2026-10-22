@@ -278,6 +278,14 @@ npm test
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Premier envoi sur le dépôt public `Lokyron/mail-automate`
+  (branches `main` et `beta` au même commit, pour que le canal bêta existe).
+  Toutes les références au dépôt mises à jour, valeurs d'exemple du `.env`
+  rendues neutres. Vérifié contre le dépôt réel : l'archive se télécharge, elle
+  passe les contrôles de l'exécuteur de mise à jour, les bits d'exécution
+  survivent, et aucun `.env` ni base de données n'y figure. Audit des licences
+  des dépendances : aucune copyleft dans l'arbre (127 MIT, 9 ISC, BSD,
+  2 Apache-2.0), le choix de licence est donc libre.
 - **21/10/2026** — Mises à jour depuis GitHub, sur le modèle de Glassboard :
   canaux stable/beta, demande déposée en fichier, exécuteur root hors du
   conteneur (unités `path` + `service`), attente de la sonde de santé et retour
