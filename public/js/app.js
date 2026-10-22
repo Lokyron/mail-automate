@@ -620,6 +620,54 @@ function suivreMaj() {
   }, 5000);
 }
 
+/* ------------------------------------------------------------- mot de passe */
+
+let mdpObligatoire = false;
+
+function ouvrirMdp({ obligatoire = false } = {}) {
+  mdpObligatoire = obligatoire;
+  const ecran = $('#ecran-mdp');
+  $('#titre-mdp').textContent = obligatoire ? 'Choisis ton mot de passe' : 'Changer le mot de passe';
+  $('#motif-mdp').textContent = obligatoire
+    ? "Celui en service a été posé par l'installation. Remplace-le avant d'aller plus loin."
+    : 'Toutes les sessions ouvertes seront fermées, y compris celle-ci.';
+  // Rien à annuler quand le changement est imposé.
+  $('#annuler-mdp').hidden = obligatoire;
+  $('#erreur-mdp').hidden = true;
+  $('#form-mdp').reset();
+  ecran.hidden = false;
+  $('#form-mdp').actuel.focus();
+}
+
+$('#motdepasse').addEventListener('click', () => ouvrirMdp());
+$('#annuler-mdp').addEventListener('click', () => { $('#ecran-mdp').hidden = true; });
+
+$('#form-mdp').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const erreur = $('#erreur-mdp');
+  erreur.hidden = true;
+
+  if (f.nouveau.value !== f.repeter.value) {
+    erreur.textContent = 'Les deux saisies diffèrent.';
+    erreur.hidden = false;
+    return;
+  }
+  try {
+    await api('/auth/motdepasse', {
+      method: 'POST',
+      body: JSON.stringify({ actuel: f.actuel.value, nouveau: f.nouveau.value }),
+    });
+    // Le serveur a ferme toutes les sessions : il faut se reconnecter, et
+    // c'est voulu — un changement de mot de passe qui laisse les sessions
+    // ouvertes ne protege de rien.
+    location.href = '/login';
+  } catch (ex) {
+    erreur.textContent = ex.message;
+    erreur.hidden = false;
+  }
+});
+
 /* -------------------------------------------------------------- navigation */
 
 document.querySelectorAll('.onglets button').forEach((b) => {
@@ -652,6 +700,11 @@ $('#deconnexion').addEventListener('click', async () => {
   const me = await fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null));
   if (!me) return void (location.href = '/login');
   csrf = me.csrf;
+
+  // Avant tout le reste : si le mot de passe est encore celui de
+  // l'installation, on impose d'en choisir un autre.
+  if (me.doitChanger) return void ouvrirMdp({ obligatoire: true });
+
   await chargerRegles();
   await Promise.all([chargerMesures(), chargerListe()]);
 })();

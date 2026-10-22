@@ -159,3 +159,12 @@ iframe.html-recu {
 .maj-etat.failed  { border-color: var(--danger); color: var(--danger); }
 .maj-etat.done    { border-color: var(--ok); color: var(--ok); }
 code.sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+
+/* Panneau de mot de passe, bloquant a la premiere connexion */
+.ecran {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--fond) 88%, transparent);
+  backdrop-filter: blur(3px); padding: 1rem;
+}
+.ecran .carte { width: min(26rem, 94vw); }
+.ecran h2 { margin: 0; }

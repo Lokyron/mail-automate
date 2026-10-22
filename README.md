@@ -289,6 +289,11 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Mot de passe changeable depuis l'interface, et **changement
+  imposé à la première connexion**. L'empreinte vit désormais en base, celle du
+  `.env` n'étant plus qu'une amorce : le conteneur est en lecture seule, il ne
+  peut pas réécrire son `.env`. Le changement ferme toutes les sessions, y
+  compris la sienne. 6 tests.
 - **22/10/2026** — Correction du profil `tls`, trouvée en le lançant pour de
   vrai : `tls internal` sur `:443` sans nom ne peut délivrer aucun certificat
   quand on arrive par IP, et la poignée de main échouait en « internal error »

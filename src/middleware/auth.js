@@ -9,8 +9,28 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { config } = require('../config');
-const { db, nowIso } = require('../db');
+const { db, getState, setState, nowIso } = require('../db');
 const log = require('../utils/logger');
+
+/**
+ * Le mot de passe est d'abord celui de la BASE, et seulement a defaut celui du
+ * .env.
+ *
+ * Pourquoi : le .env est pose a l'installation et le conteneur tourne en
+ * lecture seule — l'application ne peut pas le reecrire, donc elle ne pourrait
+ * pas changer son propre mot de passe. L'empreinte vit donc en base des le
+ * premier changement, et celle du .env ne sert plus que d'amorce.
+ *
+ * Consequence voulue : tant que rien n'est en base, le mot de passe en service
+ * est celui que l'installateur a pose, et l'interface impose d'en choisir un
+ * autre.
+ */
+const ETAT_HASH = 'admin_password_hash';
+
+const empreinteCourante = () => getState(ETAT_HASH) || config.admin.passwordHash;
+
+/** Vrai tant que le mot de passe d'amorce n'a pas ete remplace. */
+const motDePasseAChanger = () => !getState(ETAT_HASH);
 
 const COOKIE = config.session.cookieName;
 
@@ -63,11 +83,34 @@ function currentSession(req) {
 function verifyPassword(password) {
   if (!password) return false;
   try {
-    return bcrypt.compareSync(password, config.admin.passwordHash);
+    return bcrypt.compareSync(password, empreinteCourante());
   } catch (e) {
     log.error('Verification du mot de passe impossible :', e.message);
     return false;
   }
+}
+
+const LONGUEUR_MINIMALE = 12;
+
+/**
+ * Remplace le mot de passe. Toutes les sessions tombent, y compris la mienne :
+ * changer de mot de passe doit faire tomber ce qui a ete ouvert avec l'ancien,
+ * sinon le geste ne protege de rien.
+ */
+function changePassword({ actuel, nouveau }) {
+  if (!verifyPassword(actuel))
+    throw Object.assign(new Error('Mot de passe actuel incorrect.'), { status: 403 });
+
+  const mot = String(nouveau || '');
+  if (mot.length < LONGUEUR_MINIMALE)
+    throw Object.assign(new Error(`Le nouveau mot de passe doit faire ${LONGUEUR_MINIMALE} caracteres au moins.`), { status: 400 });
+  if (mot === actuel)
+    throw Object.assign(new Error("Le nouveau mot de passe doit differer de l'ancien."), { status: 400 });
+
+  setState(ETAT_HASH, bcrypt.hashSync(mot, 12));
+  const tombees = db.prepare('DELETE FROM sessions').run().changes;
+  log.info(`Mot de passe change ; ${tombees} session(s) fermee(s).`);
+  return { ok: true, sessionsFermees: tombees };
 }
 
 /** Garde d'acces pour les routes d'API (repond en JSON). */
@@ -119,6 +162,9 @@ function purgeExpiredSessions() {
 }
 
 module.exports = {
+  changePassword,
+  motDePasseAChanger,
+  LONGUEUR_MINIMALE,
   createSession,
   destroySession,
   currentSession,
