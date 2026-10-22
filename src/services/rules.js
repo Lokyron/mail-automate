@@ -14,6 +14,11 @@ const { config } = require('../config');
 function correspond(valeur, operateur, motif) {
   const v = String(valeur || '').toLowerCase();
   const m = String(motif || '').toLowerCase();
+  // « renseigne » ne compare rien : il demande seulement si le champ EXISTE.
+  // C'est ce qu'il fallait pour List-Id — un en-tete dont la seule presence dit
+  // « ceci est une diffusion », et dont la valeur ne suit aucune forme fixe (la
+  // regle livree y cherchait un « @ », que beaucoup de listes n'ont pas).
+  if (operateur === 'renseigne') return v.length > 0;
   if (!v || !m) return false;
   switch (operateur) {
     case 'egal':     return v === m;
@@ -57,10 +62,16 @@ function estSensible(message) {
   return config.confidentiel.motsObjet.some((mot) => objet.includes(mot));
 }
 
-const champ = (message, nom) => {
-  if (nom === 'list_id') return message.thread_refs || message.list_id || '';
-  return message[nom] || '';
-};
+/**
+ * Valeur d'un champ de message, pour une regle.
+ *
+ * `list_id` lit la colonne `list_id` et RIEN D'AUTRE. Le repli sur
+ * `thread_refs` qui tenait lieu de colonne manquante faussait tout le tri :
+ * les References d'une reponse contiennent les identifiants des messages
+ * precedents, tous porteurs d'un « @ », si bien que la regle « list_id contient
+ * @ » rangeait chaque reponse de fil en « Infolettres ».
+ */
+const champ = (message, nom) => message[nom] || '';
 
 /**
  * Premiere regle active qui s'applique, dans l'ordre. Retourne null si aucune :

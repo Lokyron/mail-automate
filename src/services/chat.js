@@ -274,16 +274,76 @@ function systeme() {
   ].join('\n');
 }
 
+/**
+ * Rend un historique RECEVABLE par l'API, quoi qu'il contienne.
+ *
+ * C'est une reparation, pas une precaution. Les tours sont enregistres un par
+ * un : une seule question qui fait travailler l'agent en ecrit quatre ou cinq
+ * (la question, l'appel d'outil, son resultat, la reponse). La fenetre de
+ * `CHAT_HISTORY_TURNS` tours coupait donc regulierement AU MILIEU d'une boucle
+ * d'outils, et l'API refuse net :
+ *
+ *  - un `tool_result` dont le `tool_use` a ete coupe en amont ;
+ *  - un `tool_use` dont le `tool_result` a ete coupe en aval ;
+ *  - deux tours de meme role a la suite (les roles doivent alterner).
+ *
+ * Resultat observable : apres quelques questions, l'agent ne repondait plus du
+ * tout — ni dans l'interface, ni dans le salon — avec une erreur 400 que rien
+ * ne rattachait a l'historique. On recoupe donc la fenetre sur une frontiere
+ * propre : elle commence a une vraie question, ne garde aucun appel d'outil
+ * orphelin, et finit sur un tour de l'assistant pour que la question suivante
+ * alterne correctement.
+ */
+function assainir(tours) {
+  // 1. Commencer a une VRAIE question : un tour « user » qui ne transporte pas
+  //    des resultats d'outils.
+  const debut = tours.findIndex(
+    (t) => t.role === 'user' && !t.content.some((b) => b?.type === 'tool_result')
+  );
+  if (debut < 0) return [];
+  let gardes = tours.slice(debut);
+
+  /**
+   * 2 et 3, EN BOUCLE jusqu'a ce que plus rien ne bouge. Les deux coupes
+   * s'appellent l'une l'autre : finir sur l'assistant retire un tour de
+   * resultats, ce qui laisse l'appel d'outil qui precede sans reponse, ce qui
+   * oblige a couper encore. Une seule passe laissait donc passer un `tool_use`
+   * orphelin — exactement ce qu'on voulait eliminer.
+   */
+  for (;;) {
+    const avant = gardes.length;
+
+    // Couper au premier appel d'outil dont le resultat n'est pas dans la fenetre.
+    const resultats = new Set();
+    for (const t of gardes) {
+      for (const b of t.content) if (b?.type === 'tool_result' && b.tool_use_id) resultats.add(b.tool_use_id);
+    }
+    const orphelin = gardes.findIndex((t) =>
+      t.content.some((b) => b?.type === 'tool_use' && !resultats.has(b.id))
+    );
+    if (orphelin >= 0) gardes = gardes.slice(0, orphelin);
+
+    // Finir sur l'assistant : le tour suivant sera ma question.
+    while (gardes.length && gardes[gardes.length - 1].role !== 'assistant') gardes.pop();
+
+    if (gardes.length === avant) return gardes;
+  }
+}
+
 const historique = (plateforme, chatId) =>
-  db
-    .prepare(
-      `SELECT role, contenu FROM chat_turns
-        WHERE plateforme = ? AND chat_id = ?
-        ORDER BY id DESC LIMIT ?`
-    )
-    .all(plateforme, chatId, config.chat.historique)
-    .reverse()
-    .map((t) => ({ role: t.role, content: JSON.parse(t.contenu) }));
+  assainir(
+    db
+      .prepare(
+        `SELECT role, contenu FROM chat_turns
+          WHERE plateforme = ? AND chat_id = ?
+          ORDER BY id DESC LIMIT ?`
+      )
+      // La fenetre est demandee large : un tour enregistre n'est pas un tour de
+      // conversation, et `assainir` en retire ensuite ce qui ne tient pas.
+      .all(plateforme, chatId, Math.max(4, config.chat.historique) * 4)
+      .reverse()
+      .map((t) => ({ role: t.role, content: JSON.parse(t.contenu) }))
+  );
 
 const retenir = (plateforme, chatId, role, content) =>
   db
@@ -302,7 +362,15 @@ async function repondre({ plateforme, chatId, question }) {
   retenir(plateforme, chatId, 'user', [{ type: 'text', text: question }]);
 
   const cites = new Set();
+  const dire = (blocs) =>
+    blocs
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+
   let texte = '';
+  let epuise = true;
 
   for (let tour = 0; tour < config.chat.maxOutils; tour += 1) {
     const r = await llm.converser({
@@ -315,15 +383,13 @@ async function repondre({ plateforme, chatId, question }) {
 
     messages.push({ role: 'assistant', content: r.blocs });
     retenir(plateforme, chatId, 'assistant', r.blocs);
-
-    texte = r.blocs
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
+    texte = dire(r.blocs);
 
     const appels = r.blocs.filter((b) => b.type === 'tool_use');
-    if (!appels.length) break;
+    if (!appels.length) {
+      epuise = false;
+      break;
+    }
 
     const resultats = [];
     for (const appel of appels) {
@@ -342,10 +408,33 @@ async function repondre({ plateforme, chatId, question }) {
     }
     messages.push({ role: 'user', content: resultats });
     retenir(plateforme, chatId, 'user', resultats);
+  }
 
-    if (tour === config.chat.maxOutils - 1) {
-      texte = texte || "J'ai cherche sans aboutir. Reformule, ou dis-moi quel message regarder.";
+  /**
+   * Plafond de tours atteint : un DERNIER appel, SANS outil.
+   *
+   * La version precedente sortait de la boucle juste apres avoir pousse des
+   * resultats d'outils, sans jamais les rendre au modele : tout ce travail
+   * etait jete et l'utilisateur recevait « j'ai cherche sans aboutir », alors
+   * que la reponse etait souvent la, dans le dernier resultat. Retirer les
+   * outils garantit que ce tour-ci conclut au lieu d'en redemander un.
+   */
+  if (epuise) {
+    try {
+      const fin = await llm.converser({
+        system: systeme(),
+        messages,
+        tools: [],
+        maxOutputTokens: config.chat.maxOutputTokens,
+        temperature: 0.2,
+      });
+      messages.push({ role: 'assistant', content: fin.blocs });
+      retenir(plateforme, chatId, 'assistant', fin.blocs);
+      texte = dire(fin.blocs) || texte;
+    } catch (e) {
+      log.warn(`Chat : conclusion impossible apres ${config.chat.maxOutils} tours : ${e.message}`);
     }
+    texte = texte || "J'ai cherche sans aboutir. Reformule, ou dis-moi quel message regarder.";
   }
 
   return { texte, messagesCites: [...cites].slice(0, 3) };
@@ -355,4 +444,4 @@ async function repondre({ plateforme, chatId, question }) {
 const oublier = (plateforme, chatId) =>
   db.prepare('DELETE FROM chat_turns WHERE plateforme = ? AND chat_id = ?').run(plateforme, chatId).changes;
 
-module.exports = { repondre, oublier, OUTILS };
+module.exports = { repondre, oublier, assainir, OUTILS };

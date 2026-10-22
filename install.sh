@@ -123,7 +123,21 @@ titre "Compte d'acces a l'interface"
 
 demander ADMIN_USER "Identifiant" non
 
+# Le mot de passe est-il a (re)definir ? Il l'est forcement s'il n'y en a pas ;
+# sinon la question est posee, et c'est une porte de sortie necessaire : des le
+# premier changement fait dans l'interface, l'empreinte vit EN BASE et l'emporte
+# sur celle du .env. Reecrire le .env ne suffit donc plus, et sans cette etape il
+# n'existait aucun moyen de reprendre la main depuis la machine.
+redefinir=non
 if [ -z "$(lire ADMIN_PASSWORD_HASH)" ]; then
+  redefinir=oui
+else
+  ok "Mot de passe deja configure."
+  printf 'Redefinir le mot de passe maintenant ? [o/N] : '; read -r rep
+  case "${rep:-n}" in o|O) redefinir=oui ;; esac
+fi
+
+if [ "$redefinir" = "oui" ]; then
   while : ; do
     printf 'Mot de passe (12 caracteres minimum) : '; read -rs mdp; printf '\n'
     printf 'Repeter                             : '; read -rs mdp2; printf '\n'
@@ -142,8 +156,15 @@ if [ -z "$(lire ADMIN_PASSWORD_HASH)" ]; then
   # tronquee dans le conteneur et la connexion echoue sans explication.
   regler ADMIN_PASSWORD_HASH "${hash//\$/\$\$}"
   ok "Mot de passe enregistre (hash bcrypt)."
-else
-  ok "Mot de passe deja configure."
+  # L'empreinte en base l'emporte sur celle du .env : il faut l'effacer, sinon
+  # le mot de passe qu'on vient de poser n'ouvrirait rien. Le conteneur n'est
+  # pas forcement demarre a ce stade — l'echec est donc tolere, et rattrape par
+  # la meme commande plus bas dans le script.
+  if docker compose exec -T app node scripts/motdepasse.js --oublier >/dev/null 2>&1; then
+    ok "Ancien mot de passe de l'interface efface : celui-ci prend effet."
+  else
+    oublier_au_demarrage=oui
+  fi
 fi
 
 # --------------------------------------------------------------- la boite
@@ -271,6 +292,17 @@ for i in $(seq 1 30); do
   sleep 2
 done
 printf '\n'
+
+# Rattrapage : si l'effacement de l'empreinte en base n'a pas pu se faire plus
+# haut (conteneur pas encore demarre), il se fait maintenant qu'il repond.
+if [ "${oublier_au_demarrage:-non}" = "oui" ]; then
+  if docker compose exec -T app node scripts/motdepasse.js --oublier >/dev/null 2>&1; then
+    ok "Ancien mot de passe de l'interface efface : le nouveau prend effet."
+  else
+    avis "Mot de passe de l'interface : effacement impossible. A faire a la main :"
+    echo "    docker compose exec app node scripts/motdepasse.js --oublier"
+  fi
+fi
 
 if [ "$etat" = "healthy" ]; then
   port=$(sed -n 's/^PORT_HOTE=//p' .env | head -1); port=${port:-8090}

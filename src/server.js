@@ -91,6 +91,19 @@ app.use('/api', api);
  * repond 304 s'il n'a pas change. Le cout est d'une requete conditionnelle,
  * le gain est de ne jamais servir du code perime.
  */
+/**
+ * Les PAGES ne passent jamais par le service de fichiers statiques.
+ *
+ * `express.static` servait aussi « /index.html », qui contourne la garde de
+ * session : la coquille de l'interface partait a un visiteur sans session, qui
+ * voyait une page se construire a vide avant d'etre renvoye a la connexion.
+ * L'API etait gardee, donc rien ne fuyait — mais une page qui s'affiche puis se
+ * derobe est exactement le genre de comportement qu'on prend pour une panne.
+ * Les deux chemins ramenent donc aux routes gardees ci-dessus.
+ */
+app.get('/index.html', (req, res) => res.redirect(301, '/'));
+app.get('/login.html', (req, res) => res.redirect(301, '/login'));
+
 app.use(
   express.static(path.join(config.root, 'public'), {
     index: false,

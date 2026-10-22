@@ -146,3 +146,93 @@ test("l'interface ne contient plus aucun ecran bloquant", () => {
   // Et le changement ne renvoie plus vers l'ecran de connexion.
   assert.ok(!/location\.href = '\/login';[\s\S]{0,80}catch/.test(js), 'pas de retour force a la connexion');
 });
+
+/* ------------------------------------------------------ reprise en main */
+
+test("on peut rendre la main au mot de passe du .env (porte de sortie)", () => {
+  // LE DEFAUT QUI ENFERMAIT : l'empreinte en base l'emporte sur celle du .env.
+  // Des le premier changement, reecrire ADMIN_PASSWORD_HASH, rejouer install.sh
+  // ou reconstruire l'image ne changeaient plus rien — un mot de passe mal tape
+  // une fois, et il n'existait plus aucun moyen d'entrer.
+  assert.equal(auth.verifyPassword('mon-nouveau-mot-de-passe'), true);
+
+  session('d'.repeat(64));
+  const r = auth.oublierMotDePasse();
+  assert.equal(r.source, 'env');
+  // Tout ce qui etait ouvert tombe : si quelqu'un a du reprendre la main sur le
+  // mot de passe, les sessions d'avant ne valent plus.
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 0);
+
+  assert.equal(auth.verifyPassword('mon-nouveau-mot-de-passe'), false);
+  assert.equal(auth.verifyPassword('motdepasse-amorce'), true, "le .env doit reprendre la main");
+  assert.equal(auth.motDePasseAChanger(), true, "l'interface doit de nouveau inviter a changer");
+});
+
+test('on peut poser un mot de passe sans connaitre l ancien, en ligne de commande', () => {
+  session('e'.repeat(64));
+  const r = auth.definirMotDePasse('un-mot-de-passe-repris-en-main');
+  assert.equal(r.source, 'base');
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 0);
+
+  assert.equal(auth.verifyPassword('un-mot-de-passe-repris-en-main'), true);
+  assert.equal(auth.verifyPassword('motdepasse-amorce'), false);
+  // Trop court : refuse ici aussi, la ligne de commande n'est pas une derogation.
+  assert.throws(() => auth.definirMotDePasse('court'), /12 caracteres/);
+});
+
+test('aucune route HTTP ne permet de poser un mot de passe sans l ancien', async () => {
+  // La porte de sortie est en ligne de commande, et elle doit y rester : une
+  // route qui redefinirait le mot de passe sans l'ancien serait le defaut
+  // inverse de celui qu'on repare.
+  const app = require('../src/server');
+  const { createServer } = require('node:http');
+  const serveur = createServer(app);
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r));
+  const port = serveur.address().port;
+  try {
+    for (const chemin of ['/api/auth/oublier', '/api/auth/reinitialiser', '/api/auth/definir']) {
+      const r = await fetch(`http://127.0.0.1:${port}${chemin}`, { method: 'POST' });
+      assert.ok(r.status === 404 || r.status === 401, `${chemin} ne doit pas exister (recu ${r.status})`);
+    }
+  } finally {
+    serveur.close();
+  }
+});
+
+test('une connexion reussie ne consomme pas le quota de tentatives', () => {
+  // Le quota comptait TOUTES les requetes : se reconnecter apres un changement,
+  // verifier depuis le telephone, se tromper une fois, et le serveur repondait
+  // « Trop de tentatives » pendant un quart d'heure — ce qu'on lit comme un mot
+  // de passe qui ne marche plus.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'middleware', 'security.js'), 'utf8');
+  assert.match(src, /skipSuccessfulRequests:\s*true/, 'seuls les echecs doivent etre comptes');
+});
+
+test('la deconnexion exige le jeton CSRF', async () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'auth.js'), 'utf8');
+  assert.match(
+    src,
+    /router\.post\('\/logout',\s*auth\.requireAuth,\s*auth\.csrfProtect/,
+    'une page tierce ne doit pas pouvoir fermer la session'
+  );
+});
+
+test('la coquille de l interface n est jamais servie sans session', async () => {
+  const app = require('../src/server');
+  const { createServer } = require('node:http');
+  const serveur = createServer(app);
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r));
+  const port = serveur.address().port;
+  try {
+    for (const chemin of ['/', '/index.html']) {
+      const r = await fetch(`http://127.0.0.1:${port}${chemin}`, { redirect: 'manual' });
+      assert.ok(r.status >= 300 && r.status < 400, `${chemin} doit rediriger (recu ${r.status})`);
+    }
+  } finally {
+    serveur.close();
+  }
+});

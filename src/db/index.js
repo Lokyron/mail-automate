@@ -32,6 +32,18 @@ addColumnIfMissing('triages', 'applied_folder', "TEXT DEFAULT ''");
 // Destinataire explicite : utile pour un message compose de zero, la ou une
 // reponse deduit l'adresse du message d'origine.
 addColumnIfMissing('drafts', 'destinataire', "TEXT DEFAULT ''");
+/**
+ * En-tete List-Id, dans sa propre colonne.
+ *
+ * Elle manquait, et son absence faussait le tri de toute la boite : la regle
+ * livree « list_id contient @ » — censee reconnaitre une diffusion a son en-tete
+ * List-Id — lisait a defaut `thread_refs`, c'est-a-dire l'en-tete References.
+ * Or les References d'une reponse contiennent les identifiants des messages
+ * precedents, qui portent tous un « @ ». Autrement dit : TOUTE reponse dans un
+ * fil etait classee « Infolettres », par la premiere regle, sans jamais
+ * atteindre le modele.
+ */
+addColumnIfMissing('inbox_messages', 'list_id', "TEXT DEFAULT ''");
 
 /**
  * Libelles et regles de depart.
@@ -57,7 +69,7 @@ const LABELS = [
 const RULES = [
   // Le courrier automatique se reconnait a ses en-tetes, pas a son sens : aucune
   // raison de payer un appel au modele pour le classer.
-  [10,  'list_id',    'contient',  '@',                  'Infolettres',   'basse',   0, 'Tout message portant un en-tete List-Id est une diffusion.'],
+  [10,  'list_id',    'renseigne', '',                   'Infolettres',   'basse',   0, 'Tout message portant un en-tete List-Id est une diffusion.'],
   [20,  'from_email', 'commence',  'noreply',            'Notifications', 'basse',   0, ''],
   [21,  'from_email', 'commence',  'no-reply',           'Notifications', 'basse',   0, ''],
   [22,  'from_email', 'commence',  'ne-pas-repondre',    'Notifications', 'basse',   0, ''],
@@ -86,6 +98,27 @@ const RULES = [
     db.transaction(() => RULES.forEach((r) => ins.run(...r)))();
     log.info(`Regles de tri initialisees (${RULES.length}).`);
   }
+})();
+
+/**
+ * Correction de la regle List-Id deja en base.
+ *
+ * Elle y est ecrite « list_id contient @ », et cette forme ne vaut rien : la
+ * valeur d'un List-Id ne suit aucune regle fixe et beaucoup de listes
+ * s'annoncent « <lettre.unservice.com> », sans arobase. La regle laissait donc
+ * passer la moitie des diffusions. Ce qu'on voulait dire est « ce message
+ * PORTE un en-tete List-Id » : c'est l'operateur « renseigne ». Seule la regle
+ * livree telle quelle est corrigee — une regle retouchee a la main ne l'est
+ * pas.
+ */
+(() => {
+  const r = db
+    .prepare(
+      `UPDATE rules SET operateur = 'renseigne', valeur = ''
+        WHERE champ = 'list_id' AND operateur = 'contient' AND valeur = '@'`
+    )
+    .run();
+  if (r.changes) log.info('Migration : la regle List-Id teste desormais la presence de l en-tete.');
 })();
 
 const getState = (key, def = null) => {

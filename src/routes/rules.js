@@ -10,11 +10,12 @@ router.get('/', (req, res) => res.json({ regles: rules.toutes(), labels: rules.l
 router.post('/', (req, res) => {
   const { champ, operateur, valeur, label } = req.body || {};
   const champsValides = ['from_email', 'subject', 'body_text', 'to_text', 'list_id'];
-  const operateursValides = ['contient', 'commence', 'finit', 'egal', 'regex'];
+  const operateursValides = ['contient', 'commence', 'finit', 'egal', 'regex', 'renseigne'];
 
   if (!champsValides.includes(champ)) return res.status(400).json({ error: `Champ invalide : ${champ}` });
   if (!operateursValides.includes(operateur)) return res.status(400).json({ error: `Operateur invalide : ${operateur}` });
-  if (!valeur) return res.status(400).json({ error: 'Valeur attendue.' });
+  // « renseigne » teste la seule presence du champ : il n'a pas de valeur.
+  if (!valeur && operateur !== 'renseigne') return res.status(400).json({ error: 'Valeur attendue.' });
   if (!rules.labels().some((l) => l.nom === label)) return res.status(400).json({ error: `Libelle inconnu : ${label}` });
 
   const id = rules.ajouter({ ...req.body, champ });

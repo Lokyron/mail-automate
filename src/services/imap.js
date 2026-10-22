@@ -152,10 +152,10 @@ const addressList = (list) =>
 
 const insertMessage = () =>
   db.prepare(`
-    INSERT INTO inbox_messages (mailbox, uid_validity, uid, message_id, in_reply_to, thread_refs,
+    INSERT INTO inbox_messages (mailbox, uid_validity, uid, message_id, in_reply_to, thread_refs, list_id,
       from_name, from_email, to_text, cc_text, reply_to, subject, snippet, body_text, body_html,
       size_bytes, attachments, truncated, sent_at, received_at, fetched_at, status, sensible)
-    VALUES (@mailbox, @uid_validity, @uid, @message_id, @in_reply_to, @thread_refs,
+    VALUES (@mailbox, @uid_validity, @uid, @message_id, @in_reply_to, @thread_refs, @list_id,
       @from_name, @from_email, @to_text, @cc_text, @reply_to, @subject, @snippet, @body_text, @body_html,
       @size_bytes, @attachments, @truncated, @sent_at, @received_at, @fetched_at, 'a_trier', @sensible)
   `);
@@ -186,6 +186,7 @@ function minimalRow(msg, uidValidity, raison) {
     message_id: env.messageId ? String(env.messageId).slice(0, 500) : `no-id:${uidValidity}:${msg.uid}`,
     in_reply_to: '',
     thread_refs: '',
+    list_id: headerValue(msg.headers, 'list-id').slice(0, 500),
     from_name: sanitizeHeaderValue(from.name || '').slice(0, 200),
     from_email: String(from.address || '').toLowerCase().slice(0, 320),
     to_text: '',
@@ -238,6 +239,9 @@ async function buildRow(msg, uidValidity) {
     message_id: messageId,
     in_reply_to: env.inReplyTo ? String(env.inReplyTo).slice(0, 500) : '',
     thread_refs: headerValue(msg.headers, 'references').slice(0, 2000),
+    // Releve ET STOCKE : l'en-tete etait demande au serveur depuis le debut,
+    // mais jeté a l'arrivee, et la regle qui le cherchait lisait les References.
+    list_id: headerValue(msg.headers, 'list-id').slice(0, 500),
     from_name: sanitizeHeaderValue(from.name || '').slice(0, 200),
     from_email: String(from.address || '').toLowerCase().slice(0, 320),
     to_text: sanitizeHeaderValue(addressList(env.to)).slice(0, 1000),

@@ -12,7 +12,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test tests/*.test.js",
-    "hash": "node scripts/hash-password.js"
+    "hash": "node scripts/hash-password.js",
+    "motdepasse": "node scripts/motdepasse.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

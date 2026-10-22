@@ -56,6 +56,27 @@ docker compose down            # arrêter (le volume de données survit)
 docker compose pull && docker compose up -d --build   # mettre à jour
 ```
 
+### Mot de passe oublié, ou à reprendre en main
+
+L'empreinte du mot de passe vit **en base** dès le premier changement fait dans
+l'interface — il faut bien, puisque le conteneur tourne en lecture seule et ne
+peut pas réécrire son propre `.env`. Conséquence à connaître : à partir de là,
+modifier `ADMIN_PASSWORD_HASH`, rejouer `install.sh` ou reconstruire l'image
+**ne change plus rien**. La porte de sortie est en ligne de commande, sur la
+machine :
+
+```bash
+docker compose exec app node scripts/motdepasse.js            # poser un mot de passe
+docker compose exec app node scripts/motdepasse.js --oublier   # rendre la main au .env
+```
+
+Sans Docker, `npm run motdepasse` depuis le dossier de l'application. Dans les
+deux cas **toutes les sessions tombent** : si quelqu'un a eu besoin de reprendre
+la main sur le mot de passe, ce qui était ouvert avant ne vaut plus. Il n'existe
+aucune route HTTP équivalente, et un test le vérifie : une porte qui
+redéfinirait le mot de passe sans demander l'ancien n'a rien à faire sur le
+réseau.
+
 ### Deux points sur le réseau
 
 Dans le conteneur, l'application écoute sur `0.0.0.0` — sinon la redirection de
@@ -236,6 +257,13 @@ cacherait dans `/var/lib/docker/volumes`. Le dossier doit appartenir à l'uid
 npm test
 ```
 
+58 tests, sans réseau ni base de travail : chaque fichier ouvre sa propre base
+jetable. Ils portent sur les invariants qui coûteraient cher à redécouvrir — le
+verrou d'écriture, l'absence d'outil d'envoi chez l'agent, les deux temps de
+l'envoi, la porte de sortie du mot de passe, et le fait qu'un historique de
+conversation reste recevable par l'API quelle que soit la façon dont la fenêtre
+tombe.
+
 ## Trois détails Gmail qui coûtent du temps
 
 - **Un libellé Gmail est un dossier IMAP.** Poser un libellé *sans* sortir le
@@ -298,6 +326,41 @@ c'est l'usage normal de cette application.
   compris), et la **session courante qui survit** au changement (les autres
   tombent). Un bandeau ne peut enfermer personne. Un test vérifie qu'aucune
   notion de panneau « obligatoire » ne revient.
+- **23/10/2026** — **Audit complet, et la porte de sortie qui manquait.** Le
+  serveur faisait bien son travail — l'empreinte était en base, la session
+  valide — mais il n'existait **aucun moyen de reprendre la main** sur le mot de
+  passe : l'empreinte en base l'emporte sur celle du `.env`, donc réécrire
+  `ADMIN_PASSWORD_HASH`, rejouer `install.sh` (qui conserve un `.env` existant)
+  ou reconstruire l'image ne changeaient plus rien. Un mot de passe mal tapé une
+  fois, et on était enfermé dehors sur une machine à portée de main. Ajouté :
+  `scripts/motdepasse.js` (poser un mot de passe, ou rendre la main au `.env`),
+  une étape « redéfinir » dans `install.sh`, et un test qui vérifie qu'**aucune
+  route HTTP** ne fait la même chose. Au passage, cinq défauts du même chemin :
+  le quota de connexion comptait les **succès** (se reconnecter, vérifier depuis
+  le téléphone, se tromper une fois → « Trop de tentatives » pendant un quart
+  d'heure, qu'on lit comme un mot de passe qui ne marche plus) ; la déconnexion
+  n'exigeait pas de jeton CSRF ; `/index.html` était servi sans session ;
+  `login.js` cassait sur une réponse non-JSON (la page d'erreur du reverse proxy
+  pendant un redémarrage s'affichait en « Unexpected token < ») ; et
+  `requireAuthPage` connaissait une page `/m` qui n'existe pas.
+
+  Trois défauts hors authentification, trouvés dans la même passe :
+  **le tri était faussé pour toute la boîte** — l'en-tête `List-Id` était
+  demandé au serveur mais jamais stocké, et la règle qui le cherchait lisait à
+  défaut `References`, dont les identifiants portent tous un « @ » : *chaque
+  réponse dans un fil* était rangée en « Infolettres » par la première règle,
+  sans jamais atteindre le modèle. Colonne ajoutée, en-tête stocké, et la règle
+  teste désormais la **présence** de l'en-tête (nouvel opérateur « est
+  renseigné ») et non un « @ » que beaucoup de listes n'ont pas — une migration
+  corrige la règle déjà en base. **L'agent devenait muet** après quelques
+  questions : l'historique rejoué était coupé au milieu d'une boucle d'outils et
+  l'API refusait la requête (`tool_use` sans `tool_result`, rôles non alternés) ;
+  la fenêtre est maintenant recoupée sur une frontière propre, et le dernier tour
+  se fait **sans outil** pour que les résultats servent à quelque chose au lieu
+  d'être jetés. Enfin, l'en-tête `To:` d'une réponse ignorait le destinataire
+  retenu : l'enveloppe SMTP partait à la bonne adresse, le message en affichait
+  une autre. 58 tests passent (17 de plus), dont la preuve par épuisement que
+  toutes les coupes possibles d'un fil restent recevables par l'API.
 - **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
   servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
   peut pas laisser un navigateur servir le script de la version précédente —

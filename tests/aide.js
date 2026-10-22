@@ -20,6 +20,7 @@ function message(db, champs = {}) {
     message_id: `<${Math.random().toString(36).slice(2)}@exemple.fr>`,
     in_reply_to: '',
     thread_refs: '',
+    list_id: '',
     from_name: 'Lucie',
     from_email: 'lucie@exemple.fr',
     to_text: 'moi@exemple.fr',
@@ -40,10 +41,10 @@ function message(db, champs = {}) {
   };
   const info = db
     .prepare(
-      `INSERT INTO inbox_messages (mailbox, uid_validity, uid, message_id, in_reply_to, thread_refs,
+      `INSERT INTO inbox_messages (mailbox, uid_validity, uid, message_id, in_reply_to, thread_refs, list_id,
         from_name, from_email, to_text, cc_text, reply_to, subject, snippet, body_text, body_html,
         size_bytes, attachments, truncated, sent_at, received_at, fetched_at, status, sensible)
-       VALUES (@mailbox, @uid_validity, @uid, @message_id, @in_reply_to, @thread_refs,
+       VALUES (@mailbox, @uid_validity, @uid, @message_id, @in_reply_to, @thread_refs, @list_id,
         @from_name, @from_email, @to_text, @cc_text, @reply_to, @subject, @snippet, @body_text, @body_html,
         @size_bytes, @attachments, @truncated, @sent_at, @received_at, @fetched_at, 'trie', @sensible)`
     )

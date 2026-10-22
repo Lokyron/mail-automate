@@ -82,8 +82,12 @@ function currentSession(req) {
 
 function verifyPassword(password) {
   if (!password) return false;
+  const empreinte = empreinteCourante();
+  // Une empreinte absente n'est pas une erreur a journaliser a chaque tentative :
+  // c'est une configuration incomplete, que `validate()` signale au demarrage.
+  if (!empreinte) return false;
   try {
-    return bcrypt.compareSync(password, empreinteCourante());
+    return bcrypt.compareSync(password, empreinte);
   } catch (e) {
     log.error('Verification du mot de passe impossible :', e.message);
     return false;
@@ -122,6 +126,47 @@ function changePassword({ actuel, nouveau, sessionCourante = null }) {
   return { ok: true, sessionsFermees: tombees, sessionGardee: Boolean(sessionCourante) };
 }
 
+/**
+ * REPRISE EN MAIN DU MOT DE PASSE, depuis la ligne de commande.
+ *
+ * Ces deux fonctions existent parce qu'il manquait une porte de sortie, et que
+ * son absence enferme pour de bon :
+ *
+ * l'empreinte en base l'emporte sur celle du .env. Des le premier changement,
+ * modifier `ADMIN_PASSWORD_HASH`, rejouer `install.sh` (qui conserve un .env
+ * existant) ou reconstruire l'image ne change plus RIEN. Un mot de passe mal
+ * tape une fois — ou simplement oublie — et il n'y a plus aucun moyen d'entrer,
+ * alors que la machine est a portee de main. Une application auto-hebergee doit
+ * toujours laisser une porte a qui a l'acces root de l'hote.
+ *
+ * Le choix d'une porte EN LIGNE DE COMMANDE, et non d'un reglage du .env : un
+ * `ADMIN_PASSWORD_RESET=true` oublie dans un fichier remettrait le mot de passe
+ * d'amorce a chaque redemarrage, sans que personne ne s'en apercoive.
+ *
+ * Voir `scripts/motdepasse.js`, et la section « Mot de passe oublie » du README.
+ */
+function oublierMotDePasse() {
+  setState(ETAT_HASH, null);
+  const tombees = db.prepare('DELETE FROM sessions').run().changes;
+  log.warn(`Mot de passe : empreinte en base effacee, celle du .env reprend la main ; ${tombees} session(s) fermee(s).`);
+  return { ok: true, source: 'env', sessionsFermees: tombees };
+}
+
+/**
+ * Pose un mot de passe SANS demander l'ancien. Reserve a la ligne de commande :
+ * aucune route HTTP n'appelle cette fonction, et c'est le point important.
+ */
+function definirMotDePasse(nouveau) {
+  const mot = String(nouveau || '');
+  if (mot.length < LONGUEUR_MINIMALE)
+    throw Object.assign(new Error(`Le mot de passe doit faire ${LONGUEUR_MINIMALE} caracteres au moins.`), { status: 400 });
+
+  setState(ETAT_HASH, bcrypt.hashSync(mot, 12));
+  const tombees = db.prepare('DELETE FROM sessions').run().changes;
+  log.warn(`Mot de passe redefini en ligne de commande ; ${tombees} session(s) fermee(s).`);
+  return { ok: true, source: 'base', sessionsFermees: tombees };
+}
+
 /** Garde d'acces pour les routes d'API (repond en JSON). */
 function requireAuth(req, res, next) {
   const s = currentSession(req);
@@ -133,13 +178,13 @@ function requireAuth(req, res, next) {
 /**
  * Garde d'acces pour les pages HTML (redirige vers /login).
  *
- * La page demandee est passee en « next » pour que la connexion y ramene.
- * Sans cela, l'application installee sur le telephone — qui ouvre /m — retombait
- * sur l'interface d'ordinateur apres chaque expiration de session.
- * Seul un chemin interne connu est accepte : un « next » libre serait une
- * redirection ouverte offerte a qui sait fabriquer un lien.
+ * La page demandee est passee en « next » pour que la connexion y ramene. Seul
+ * un chemin interne CONNU est accepte : un « next » libre serait une redirection
+ * ouverte offerte a qui sait fabriquer un lien. La liste ne contient donc que
+ * les pages reellement servies par le serveur — une entree pour une page qui
+ * n'existe pas renverrait vers un 404.
  */
-const PAGES = ['/', '/m'];
+const PAGES = ['/'];
 
 function requireAuthPage(req, res, next) {
   const s = currentSession(req);
@@ -172,6 +217,8 @@ function purgeExpiredSessions() {
 
 module.exports = {
   changePassword,
+  oublierMotDePasse,
+  definirMotDePasse,
   motDePasseAChanger,
   LONGUEUR_MINIMALE,
   createSession,

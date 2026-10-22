@@ -29,13 +29,27 @@ const entetes = helmet({
   referrerPolicy: { policy: 'no-referrer' },
 });
 
-/** Limite les tentatives de connexion : 10 par quart d'heure et par adresse. */
+/**
+ * Limite les tentatives de connexion : 20 ECHECS par quart d'heure et par
+ * adresse.
+ *
+ * `skipSuccessfulRequests` n'est pas un detail de confort. La version
+ * precedente comptait TOUTES les requetes, succes compris : quelqu'un qui vient
+ * de changer son mot de passe, se reconnecte, verifie depuis son telephone, se
+ * trompe une fois, recommence, epuisait le quota en quelques minutes. Le
+ * serveur repondait alors « Trop de tentatives » pendant un quart d'heure — un
+ * message qu'on lit comme une panne, et qui ressemble a s'y meprendre a un mot
+ * de passe qui ne fonctionnerait plus. Compter les echecs seuls protege tout
+ * autant d'une attaque par force brute, et n'enferme pas dehors celui qui
+ * connait son mot de passe.
+ */
 const limiteConnexion = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 20,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Trop de tentatives. Reessayer dans quinze minutes.' },
+  message: { error: 'Trop de tentatives infructueuses. Reessayer dans quinze minutes.' },
 });
 
 /** Limite generale de l'API, large : un seul utilisateur. */

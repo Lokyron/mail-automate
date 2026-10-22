@@ -177,7 +177,7 @@ async function marquerLu(messageId) {
  * Gmail ouvre une conversation separee et le brouillon parait surgir de nulle
  * part.
  */
-function composer(message, { objet, corps }) {
+function composer(message, { objet, corps, destinataire: voulu = '' }) {
   const original = String(message.message_id || '').trim();
   const entre = (v) => (v && !v.startsWith('<') ? `<${v}>` : v);
   const refs = [
@@ -185,7 +185,15 @@ function composer(message, { objet, corps }) {
     entre(original),
   ].filter(Boolean);
 
-  const destinataire = message.reply_to || `${message.from_name ? `${message.from_name} ` : ''}<${message.from_email}>`;
+  // Le destinataire RETENU l'emporte sur celui deduit du message d'origine.
+  // Sans cela, l'enveloppe SMTP partait bien a l'adresse choisie (cf. mailer.js)
+  // mais l'en-tete « To: » du message affichait l'expediteur d'origine : le
+  // destinataire voyait une reponse adressee a quelqu'un d'autre, et un « repondre
+  // a tous » repartait au mauvais endroit.
+  const destinataire =
+    String(voulu || '').trim() ||
+    message.reply_to ||
+    `${message.from_name ? `${message.from_name} ` : ''}<${message.from_email}>`;
   const expediteur = config.smtp.fromName
     ? `${config.smtp.fromName} <${config.smtp.fromEmail}>`
     : config.smtp.fromEmail;
@@ -226,7 +234,11 @@ async function deposerBrouillon(draftId) {
     throw Object.assign(new Error('Ce brouillon a deja ete envoye.'), { status: 409 });
 
   const message = messageOuLeve(brouillon.message_id);
-  const raw = await composer(message, { objet: brouillon.objet, corps: corpsRetenu(brouillon) });
+  const raw = await composer(message, {
+    objet: brouillon.objet,
+    corps: corpsRetenu(brouillon),
+    destinataire: brouillon.destinataire,
+  });
 
   const { dossier, uid } = await avecClient(async (client) => {
     const d = await dossierSpecial(client, '\\Drafts');

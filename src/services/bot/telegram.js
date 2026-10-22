@@ -60,7 +60,11 @@ const autorise = (chatId) => config.bot.chatId.includes(String(chatId));
 
 /* -------------------------------------------------------------------- envois */
 
-async function envoyerCarte(chatId, { texte, clavier }, { messageId = null, draftId = null } = {}) {
+async function envoyerCarte(chatId, carte, { messageId = null, draftId = null } = {}) {
+  // Une carte absente n'est pas une anomalie a faire remonter en exception : le
+  // message a pu etre efface de la base entre l'evenement et son affichage.
+  if (!carte?.texte) return null;
+  const { texte, clavier } = carte;
   const res = await appeler('sendMessage', {
     chat_id: chatId,
     text: texte,
@@ -257,6 +261,7 @@ async function clic(q) {
     if (famille === 'm' && action === 'voir') {
       const carte = cartes.carteCorps(Number(args[0]));
       await repondreAuClic(q.id);
+      if (!carte?.texte) return void (await envoyerTexte(chatId, 'Message introuvable.'));
       return void (await envoyerTexte(chatId, carte.texte));
     }
 

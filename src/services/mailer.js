@@ -129,7 +129,8 @@ async function envoyer(draftId, jeton) {
       { status: 409 }
     );
 
-  const raw = await imapWrite.composer(message, { objet: brouillon.objet, corps });
+  const destinataire = brouillon.destinataire || message.reply_to || message.from_email;
+  const raw = await imapWrite.composer(message, { objet: brouillon.objet, corps, destinataire });
 
   // Gmail enregistre lui-meme le message dans « Envoyes » quand on passe par
   // son SMTP : rien a recopier en IMAP, et surtout aucun risque de renvoyer le
@@ -137,10 +138,7 @@ async function envoyer(draftId, jeton) {
   let info;
   try {
     info = await transporteur().sendMail({
-      envelope: {
-        from: config.smtp.fromEmail,
-        to: [brouillon.destinataire || message.reply_to || message.from_email],
-      },
+      envelope: { from: config.smtp.fromEmail, to: [destinataire] },
       raw,
     });
   } catch (e) {

@@ -18,7 +18,14 @@ router.post('/login', limiteConnexion, (req, res) => {
   res.json({ ok: true, csrf });
 });
 
-router.post('/logout', (req, res) => {
+/**
+ * Deconnexion. Protegee par le jeton CSRF comme toute methode mutante : sans
+ * cela, une page tierce ouverte dans le meme navigateur pouvait fermer la
+ * session a distance. Une session deja expiree repond 401, et l'interface sait
+ * deja quoi faire d'un 401 — elle va a l'ecran de connexion, qui est la ou on
+ * voulait aller.
+ */
+router.post('/logout', auth.requireAuth, auth.csrfProtect, (req, res) => {
   auth.destroySession(req, res);
   res.json({ ok: true });
 });
