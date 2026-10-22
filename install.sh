@@ -181,7 +181,13 @@ if [ "${rep:-n}" = "o" ] || [ "${rep:-n}" = "O" ]; then
   # Sans cela, l'application ne voit pas que la requete est arrivee en HTTPS et
   # n'appose pas le drapeau Secure sur son cookie de session.
   regler TRUSTED_PROXIES "172.16.0.0/12"
-  ok "Profil tls active, proxys du reseau Docker declares de confiance."
+  # Et sans CADDY_SITE, le certificat auto-signe ne peut pas etre delivre : le
+  # navigateur annonce « site inaccessible » et rien dans l'application ne le
+  # laisse deviner. On le demande donc plutot que de le supposer.
+  defaut=$(hostname -I 2>/dev/null | awk '{print $1}')
+  demander CADDY_SITE "Adresse par laquelle tu joindras l'interface (IP ou nom)${defaut:+, p. ex. $defaut}" non
+  [ -n "$(lire CADDY_SITE)" ] || { [ -n "$defaut" ] && regler CADDY_SITE "$defaut"; }
+  ok "Profil tls active pour $(lire CADDY_SITE), proxys Docker declares de confiance."
 fi
 
 # ------------------------------------------------------- mises a jour

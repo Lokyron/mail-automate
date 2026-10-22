@@ -289,6 +289,12 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Correction du profil `tls`, trouvée en le lançant pour de
+  vrai : `tls internal` sur `:443` sans nom ne peut délivrer aucun certificat
+  quand on arrive par IP, et la poignée de main échouait en « internal error »
+  — côté navigateur, un simple « site inaccessible ». L'adresse se déclare
+  maintenant dans `CADDY_SITE`, `install.sh` la demande, et le réglage est
+  documenté là où il manquait.
 - **22/10/2026** — Déployé en CT 124 (10.1.20.124) du Home Lab : Debian 13,
   Docker avec imbrication vérifiée, dépôt cloné en HTTPS, image construite,
   données en `/var/lib/inbox-agent` à l'uid 1000, exécuteur de mise à jour

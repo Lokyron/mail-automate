@@ -68,6 +68,10 @@ services:
     restart: unless-stopped
     profiles: ["tls"]
     depends_on: [app]
+    # L'adresse par laquelle on joint l'interface. Indispensable : « tls
+    # internal » ne delivre un certificat que pour un nom ou une IP declares.
+    environment:
+      CADDY_SITE: ${CADDY_SITE:-:443}
     ports:
       - "${PORT_HTTPS:-8443}:443"
     volumes:

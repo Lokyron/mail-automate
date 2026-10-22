@@ -1,18 +1,21 @@
-# HTTPS sur le reseau local, certificat auto-signe (`tls internal`). Le
-# navigateur avertira une premiere fois : c'est attendu, il n'y a pas
-# d'autorite publique pour une adresse privee.
+# HTTPS local pour l'interface, certificat auto-signe (« tls internal »).
 #
-# Pour un vrai certificat, remplacer le bloc d'adresse par un nom de domaine
-# pointant sur la machine et retirer la ligne `tls internal` — Caddy obtient et
-# renouvelle alors le certificat tout seul.
-:443 {
+# CADDY_SITE porte l'adresse par laquelle on joint l'interface : une IP
+# (10.1.20.124) ou un nom (inbox.exemple.fr). CE REGLAGE N'EST PAS DECORATIF :
+# « tls internal » ne sait delivrer un certificat que pour un nom ou une IP
+# DECLARES. Laisse a « :443 » sans nom, la poignee de main echoue avec une
+# « internal error » cote serveur, et le navigateur annonce seulement que le
+# site est inaccessible — une demi-heure de recherche pour un reglage manquant.
+#
+# Pour un vrai certificat, mettre un nom de domaine qui pointe sur la machine et
+# retirer la ligne « tls internal » : Caddy l'obtient et le renouvelle seul.
+{$CADDY_SITE::443} {
 	tls internal
 
 	encode zstd gzip
 
-	# L'application fixe elle-meme ses en-tetes de securite (helmet) : on ne
-	# les redouble pas ici, pour n'avoir qu'un seul endroit a corriger.
-	reverse_proxy app:8090 {
-		header_up X-Forwarded-Proto {scheme}
-	}
+	# L'application fixe elle-meme ses en-tetes de securite (helmet) : on ne les
+	# redouble pas ici, pour n'avoir qu'un seul endroit a corriger.
+	# X-Forwarded-Proto est transmis par defaut, pas besoin de le declarer.
+	reverse_proxy app:8090
 }
