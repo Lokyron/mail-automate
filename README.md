@@ -258,6 +258,17 @@ npm test
   `src/services/bot/`, le journal d'événements est déjà prévu pour plusieurs
   consommateurs.
 
+## Licence
+
+[GNU Affero General Public License v3.0 or later](LICENSE) © 2026 les
+contributeurs de mail-automate.
+
+L'AGPL ajoute un devoir que les licences permissives n'ont pas : si tu fais
+tourner une version **modifiée** et que tu en laisses d'autres personnes se
+servir **à travers un réseau**, tu dois leur proposer le code source
+correspondant. Faire tourner une copie non modifiée pour soi ne change rien —
+c'est l'usage normal de cette application.
+
 ## Journal
 
 - **20/10/2026** — Phase 0 écrite et vérifiée en local. Socle complet : relevé
