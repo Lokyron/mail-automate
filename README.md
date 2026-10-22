@@ -292,9 +292,12 @@ c'est l'usage normal de cette application.
 - **22/10/2026** — Correction du profil `tls`, trouvée en le lançant pour de
   vrai : `tls internal` sur `:443` sans nom ne peut délivrer aucun certificat
   quand on arrive par IP, et la poignée de main échouait en « internal error »
-  — côté navigateur, un simple « site inaccessible ». L'adresse se déclare
-  maintenant dans `CADDY_SITE`, `install.sh` la demande, et le réglage est
-  documenté là où il manquait.
+  — côté navigateur, un simple « site inaccessible ». Et un second défaut se
+  cachait derrière : **un navigateur n'envoie aucun SNI quand on tape une IP**,
+  donc même le certificat délivré ne servait à rien sans `default_sni`.
+  L'adresse se déclare maintenant dans `CADDY_SITE`, le Caddyfile pose les deux
+  réglages, `install.sh` demande l'adresse, et l'interface répond par son IP
+  (vérifié : page de connexion en HTTP 200 sans SNI).
 - **22/10/2026** — Déployé en CT 124 (10.1.20.124) du Home Lab : Debian 13,
   Docker avec imbrication vérifiée, dépôt cloné en HTTPS, image construite,
   données en `/var/lib/inbox-agent` à l'uid 1000, exécuteur de mise à jour

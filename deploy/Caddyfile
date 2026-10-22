@@ -1,21 +1,33 @@
 # HTTPS local pour l'interface, certificat auto-signe (« tls internal »).
 #
 # CADDY_SITE porte l'adresse par laquelle on joint l'interface : une IP
-# (10.1.20.124) ou un nom (inbox.exemple.fr). CE REGLAGE N'EST PAS DECORATIF :
-# « tls internal » ne sait delivrer un certificat que pour un nom ou une IP
-# DECLARES. Laisse a « :443 » sans nom, la poignee de main echoue avec une
-# « internal error » cote serveur, et le navigateur annonce seulement que le
-# site est inaccessible — une demi-heure de recherche pour un reglage manquant.
+# (10.1.20.124) ou un nom (inbox.exemple.fr). Ce reglage n'est pas decoratif,
+# et il se double d'un `default_sni` pour une raison qui merite d'etre ecrite :
+#
+#  - « tls internal » ne delivre un certificat que pour une adresse DECLAREE.
+#    Sur « :443 » sans nom, il n'a rien a signer ;
+#  - et surtout, UN NAVIGATEUR N'ENVOIE AUCUN SNI QUAND ON TAPE UNE IP. Sans
+#    SNI, Caddy ne sait pas quelle politique TLS appliquer et repond par une
+#    alerte « internal error » — que le navigateur traduit par « ce site est
+#    inaccessible », sans rien dire du certificat. `default_sni` lui donne le
+#    nom a supposer quand le client n'en annonce aucun.
+#
+# Les deux ensemble, et seulement les deux ensemble, rendent l'interface
+# joignable par son adresse IP.
 #
 # Pour un vrai certificat, mettre un nom de domaine qui pointe sur la machine et
 # retirer la ligne « tls internal » : Caddy l'obtient et le renouvelle seul.
-{$CADDY_SITE::443} {
+{
+	default_sni {$CADDY_SITE}
+}
+
+{$CADDY_SITE} {
 	tls internal
 
 	encode zstd gzip
 
 	# L'application fixe elle-meme ses en-tetes de securite (helmet) : on ne les
 	# redouble pas ici, pour n'avoir qu'un seul endroit a corriger.
-	# X-Forwarded-Proto est transmis par defaut, pas besoin de le declarer.
+	# X-Forwarded-Proto est transmis par defaut.
 	reverse_proxy app:8090
 }
