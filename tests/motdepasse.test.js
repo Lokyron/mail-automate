@@ -57,3 +57,25 @@ test('le changement survit a un redemarrage (il est en base, pas en memoire)', (
   assert.equal(auth2.verifyPassword('mon-nouveau-mot-de-passe'), true);
   assert.equal(auth2.motDePasseAChanger(), false);
 });
+
+test("une empreinte aux « $ » dedoubles est ramenee a sa forme normale", () => {
+  // docker compose mange les `$` d'un env_file : on les ecrit dedoubles, et la
+  // configuration les ramene. Les deux formes doivent ouvrir.
+  const vraie = bcrypt.hashSync('un-mot-de-passe-de-test', 10);
+  delete require.cache[require.resolve('../src/config')];
+  process.env.ADMIN_PASSWORD_HASH = vraie.replace(/\$/g, '$$$$');
+  const { config, validate } = require('../src/config');
+  assert.equal(config.admin.passwordHash, vraie);
+  assert.ok(!validate().some((f) => /bcrypt/.test(f)), 'la forme doit etre jugee valide');
+});
+
+test('une empreinte abimee fait refuser le demarrage, avec le bon motif', () => {
+  delete require.cache[require.resolve('../src/config')];
+  // Exactement ce que produit l'interpolation : « $2b$12$yuIjJo7x... » ampute
+  // de son sel.
+  process.env.ADMIN_PASSWORD_HASH = '$2b$12.AkmC0VEj0Ug7OBGVUu6lrN';
+  const { validate } = require('../src/config');
+  const motifs = validate().join(' ');
+  assert.match(motifs, /empreinte bcrypt/);
+  assert.match(motifs, /dedoubler|\$\$/i, 'le message doit dire comment corriger');
+});

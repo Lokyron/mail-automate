@@ -289,6 +289,14 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — **Docker Compose interprète les `$` d'un `env_file`**, et une
+  empreinte bcrypt en contient trois : `$2b$12$yuIjJo7x…` arrivait dans le
+  conteneur comme `$2b$12.AkmC0VEj0Ug7O…`, `$yuIjJo7x` ayant été pris pour une
+  variable. Résultat : « Identifiants invalides » sans rien dans les journaux —
+  et seulement pour les sels commençant par une lettre, donc un mot de passe sur
+  deux marchait. Les `$` sont désormais dédoublés dans le `.env` et ramenés par
+  la configuration, qui refuse en outre de démarrer si l'empreinte n'a pas la
+  forme d'un bcrypt, en disant quoi corriger.
 - **22/10/2026** — L'exécuteur de mise à jour mourait au premier pas sur la
   cible : `${3//\"/}` dans `etat()` sans valeur par défaut, que le bash 3.2 de
   macOS tolère et que le bash 5.2 de Debian refuse sous `set -u`. Il ne pouvait

@@ -47,7 +47,19 @@ const config = {
 
   admin: {
     user: process.env.ADMIN_USER || 'admin',
-    passwordHash: process.env.ADMIN_PASSWORD_HASH || '',
+    /**
+     * Empreinte bcrypt du mot de passe d'amorce.
+     *
+     * Les `$` sont DEDOUBLES dans le .env, et ramenes ici. Ce n'est pas une
+     * coquetterie : docker compose interprete les `$` des valeurs d'un
+     * `env_file`. Une empreinte bcrypt s'ecrit « $2b$12$<sel><hash> », et si le
+     * sel commence par une lettre, « $yuIjJo7x » est pris pour une variable et
+     * remplace par du vide. L'empreinte arrive alors tronquee dans le
+     * conteneur, et la seule chose qu'on observe est « Identifiants invalides »
+     * — en pire, cela ne se produit QUE pour certains sels, donc un mot de
+     * passe sur deux fonctionne et on cherche ailleurs.
+     */
+    passwordHash: String(process.env.ADMIN_PASSWORD_HASH || '').replace(/\$\$/g, '$'),
   },
 
   /**
@@ -240,8 +252,17 @@ function validate() {
   const fatals = [];
   if (!config.session.secret || config.session.secret.length < 32)
     fatals.push('SESSION_SECRET absent ou trop court (32 caracteres minimum).');
-  if (!config.admin.passwordHash)
+  if (!config.admin.passwordHash) {
     fatals.push('ADMIN_PASSWORD_HASH absent (npm run hash pour le produire).');
+  } else if (!/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(config.admin.passwordHash)) {
+    // Refuser de demarrer plutot que de laisser une empreinte abimee produire
+    // un « Identifiants invalides » inexplicable.
+    fatals.push(
+      "ADMIN_PASSWORD_HASH n'a pas la forme d'une empreinte bcrypt. " +
+        'Cause la plus probable : les `$` ont ete manges a la lecture du .env. ' +
+        'Les dedoubler ($2b$$12$$...), ou relancer install.sh qui le fait.'
+    );
+  }
   if (config.imap.enabled && (!config.imap.user || !config.imap.pass))
     fatals.push('IMAP_ENABLED=true mais IMAP_USER / IMAP_PASS absents.');
   if (!['claude', 'gemini'].includes(config.llm.provider))

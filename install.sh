@@ -137,7 +137,10 @@ if [ -z "$(lire ADMIN_PASSWORD_HASH)" ]; then
   hash=$(printf '%s' "$mdp" | docker compose run --rm --no-deps -T --entrypoint node app scripts/hash-password.js | tr -d '\r\n')
   unset mdp mdp2
   [ -n "$hash" ] || mort "Le hachage du mot de passe a echoue."
-  regler ADMIN_PASSWORD_HASH "$hash"
+  # Les `$` sont dedoubles : docker compose interprete ceux d'un env_file, et
+  # une empreinte bcrypt en contient trois. Sans cela, l'empreinte arrive
+  # tronquee dans le conteneur et la connexion echoue sans explication.
+  regler ADMIN_PASSWORD_HASH "${hash//\$/\$\$}"
   ok "Mot de passe enregistre (hash bcrypt)."
 else
   ok "Mot de passe deja configure."
