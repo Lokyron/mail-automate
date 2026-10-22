@@ -289,6 +289,12 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
+  servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
+  peut pas laisser un navigateur servir le script de la version précédente —
+  une interface d'hier qui parle à un serveur d'aujourd'hui donne des symptômes
+  inexplicables. Les fichiers de l'interface sont maintenant **revalidés**
+  (`no-cache`) : le navigateur les garde, mais vérifie.
 - **22/10/2026** — **Le changement de mot de passe était redemandé sans fin.**
   Le serveur avait raison depuis le début : l'empreinte était bien enregistrée.
   C'était le navigateur, qui rejouait un `/api/auth/me` mis en cache disant

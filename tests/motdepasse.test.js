@@ -99,3 +99,23 @@ test("aucune reponse d'API ne doit etre mise en cache", async () => {
     serveur.close();
   }
 });
+
+test("les fichiers de l'interface sont revalides, jamais gardes en cache", async () => {
+  // Une application qui se met a jour seule ne doit pas laisser un navigateur
+  // servir le app.js de la version precedente : c'est ainsi qu'une interface
+  // d'hier parle a un serveur d'aujourd'hui.
+  const app = require('../src/server');
+  const { createServer } = require('node:http');
+  const serveur = createServer(app);
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r));
+  const port = serveur.address().port;
+  try {
+    for (const chemin of ['/js/app.js', '/css/app.css']) {
+      const r = await fetch(`http://127.0.0.1:${port}${chemin}`);
+      assert.equal(r.status, 200, `${chemin} doit etre servi`);
+      assert.equal(r.headers.get('cache-control'), 'no-cache', `${chemin} doit etre revalide`);
+    }
+  } finally {
+    serveur.close();
+  }
+});

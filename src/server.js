@@ -78,7 +78,26 @@ api.use('/chat', require('./routes/chat'));
 api.use('/update', require('./routes/update'));
 app.use('/api', api);
 
-app.use(express.static(path.join(config.root, 'public'), { index: false, maxAge: '1h' }));
+/**
+ * Fichiers de l'interface : REVALIDES a chaque chargement (`no-cache`), pas
+ * gardes une heure.
+ *
+ * Une application qui se met a jour toute seule ne peut pas laisser un
+ * navigateur servir son `app.js` de la version precedente : on obtient une
+ * interface d'hier qui parle a un serveur d'aujourd'hui, et des symptomes
+ * inexplicables — ici, un panneau de changement de mot de passe qui revenait
+ * alors que le serveur ne le demandait plus. `no-cache` n'interdit pas le
+ * cache, il impose de verifier : le navigateur garde le fichier et le serveur
+ * repond 304 s'il n'a pas change. Le cout est d'une requete conditionnelle,
+ * le gain est de ne jamais servir du code perime.
+ */
+app.use(
+  express.static(path.join(config.root, 'public'), {
+    index: false,
+    maxAge: 0,
+    setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  })
+);
 
 app.use((req, res) => res.status(404).json({ error: 'Route inconnue.' }));
 
