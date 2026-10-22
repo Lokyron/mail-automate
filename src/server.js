@@ -19,13 +19,6 @@ const bot = require('./services/bot');
 const mailer = require('./services/mailer');
 const { ecritureAutorisee } = require('./services/guard');
 
-const fatals = validate();
-if (fatals.length) {
-  for (const f of fatals) log.error(`Configuration : ${f}`);
-  log.error('Demarrage interrompu. Corriger le fichier .env (voir .env.example).');
-  process.exit(1);
-}
-
 const app = express();
 app.disable('x-powered-by');
 if (config.trustedProxies.length) app.set('trust proxy', config.trustedProxies);
@@ -33,6 +26,24 @@ if (config.trustedProxies.length) app.set('trust proxy', config.trustedProxies);
 app.use(entetes);
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+
+/**
+ * AUCUNE REPONSE D'API N'EST MISE EN CACHE.
+ *
+ * Express ne pose pas d'en-tete de cache et se contente d'un ETag : un
+ * navigateur est alors libre de reutiliser une reponse sans la revalider. Le
+ * symptome vu en vrai : apres avoir change son mot de passe, l'interface
+ * redemandait de le changer a chaque chargement, indefiniment — elle relisait
+ * un `/api/auth/me` mis en cache qui disait encore « il faut changer ». Le
+ * serveur, lui, avait raison depuis le debut.
+ *
+ * Une API dont les reponses dependent de la session ne doit jamais etre
+ * mise en cache. La regle est posee ici, une fois, pour tout /api.
+ */
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 /**
  * Point de sante, SANS authentification.
@@ -90,34 +101,58 @@ app.use((err, req, res, _next) => {
   res.status(status).json({ error: redige ? err.message : 'Erreur interne.' });
 });
 
-const server = app.listen(config.port, config.host, () => {
-  log.info(`Inbox Agent sur http://${config.host}:${config.port} (${config.env}).`);
-  log.info(
-    ecritureAutorisee()
-      ? 'PHASE 1 : l\'ecriture dans la boite est AUTORISEE.'
-      : 'PHASE 0 : lecture seule, la boite Gmail n\'est jamais modifiee.'
-  );
-  imap.start();
-  bot.demarrer();
-});
+/**
+ * Validation, ecoute, taches de fond et signaux : seulement quand ce fichier
+ * est le point d'entree.
+ *
+ * Importe comme module — par un test, par exemple — il ne fait que construire
+ * l'application. Sans cette garde, un simple `require` validait la
+ * configuration, sortait du processus en cas de manque, ouvrait un port et
+ * posait des gestionnaires de signaux : un fichier impossible a tester, ce qui
+ * est precisement comme un defaut d'en-tete de cache passe inapercu.
+ */
+function demarrer() {
+  const fatals = validate();
+  if (fatals.length) {
+    for (const f of fatals) log.error(`Configuration : ${f}`);
+    log.error('Demarrage interrompu. Corriger le fichier .env (voir .env.example).');
+    process.exit(1);
+  }
 
-// Purge des sessions expirees, une fois par heure, et des confirmations
-// d'envoi perimees, toutes les cinq minutes.
-const purge = setInterval(() => auth.purgeExpiredSessions(), 3600_000);
-purge.unref();
-const purgeJetons = setInterval(() => mailer.purger(), 300_000);
-purgeJetons.unref();
+  const server = app.listen(config.port, config.host, () => {
+    log.info(`Inbox Agent sur http://${config.host}:${config.port} (${config.env}).`);
+    log.info(
+      ecritureAutorisee()
+        ? 'PHASE 1 : l\'ecriture dans la boite est AUTORISEE.'
+        : 'PHASE 0 : lecture seule, la boite Gmail n\'est jamais modifiee.'
+    );
+    imap.start();
+    bot.demarrer();
+  });
 
-async function arret(signal) {
-  log.info(`${signal} recu, arret en cours.`);
-  clearInterval(purge);
-  clearInterval(purgeJetons);
-  await bot.arreter();
-  await imap.stop();
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 5000).unref();
+  // Purge des sessions expirees, une fois par heure, et des confirmations
+  // d'envoi perimees, toutes les cinq minutes.
+  const purge = setInterval(() => auth.purgeExpiredSessions(), 3600_000);
+  purge.unref();
+  const purgeJetons = setInterval(() => mailer.purger(), 300_000);
+  purgeJetons.unref();
+
+  async function arret(signal) {
+    log.info(`${signal} recu, arret en cours.`);
+    clearInterval(purge);
+    clearInterval(purgeJetons);
+    await bot.arreter();
+    await imap.stop();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5000).unref();
+  }
+  process.on('SIGTERM', () => arret('SIGTERM'));
+  process.on('SIGINT', () => arret('SIGINT'));
+
+  return server;
 }
-process.on('SIGTERM', () => arret('SIGTERM'));
-process.on('SIGINT', () => arret('SIGINT'));
+
+if (require.main === module) demarrer();
 
 module.exports = app;
+module.exports.demarrer = demarrer;

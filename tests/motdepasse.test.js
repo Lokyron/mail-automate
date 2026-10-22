@@ -79,3 +79,23 @@ test('une empreinte abimee fait refuser le demarrage, avec le bon motif', () => 
   assert.match(motifs, /empreinte bcrypt/);
   assert.match(motifs, /dedoubler|\$\$/i, 'le message doit dire comment corriger');
 });
+
+test("aucune reponse d'API ne doit etre mise en cache", async () => {
+  // Le defaut observe en production : un /api/auth/me mis en cache par le
+  // navigateur redemandait indefiniment le changement de mot de passe, alors
+  // que le serveur ne le demandait plus. L'en-tete est donc verifie ici.
+  process.env.SESSION_SECRET = 'x'.repeat(40);
+  const app = require('../src/server');
+  const { createServer } = require('node:http');
+  const serveur = createServer(app);
+  await new Promise((r) => serveur.listen(0, '127.0.0.1', r));
+  const port = serveur.address().port;
+  try {
+    for (const chemin of ['/api/health', '/api/auth/me']) {
+      const r = await fetch(`http://127.0.0.1:${port}${chemin}`);
+      assert.equal(r.headers.get('cache-control'), 'no-store', `${chemin} doit interdire le cache`);
+    }
+  } finally {
+    serveur.close();
+  }
+});

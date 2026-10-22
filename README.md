@@ -289,6 +289,15 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **22/10/2026** — **Le changement de mot de passe était redemandé sans fin.**
+  Le serveur avait raison depuis le début : l'empreinte était bien enregistrée.
+  C'était le navigateur, qui rejouait un `/api/auth/me` mis en cache disant
+  encore « il faut changer » — Express ne pose aucun en-tête de cache et se
+  contente d'un ETag. Tout `/api` répond désormais `Cache-Control: no-store`,
+  et le test l'a immédiatement attrapé une seconde fois : `/api/health` était
+  déclaré **avant** le middleware, donc ne le traversait pas. `server.js` est
+  au passage devenu importable sans effet de bord — un fichier qu'on ne peut
+  pas tester est un fichier où ce genre de défaut passe inaperçu.
 - **22/10/2026** — **Docker Compose interprète les `$` d'un `env_file`**, et une
   empreinte bcrypt en contient trois : `$2b$12$yuIjJo7x…` arrivait dans le
   conteneur comme `$2b$12.AkmC0VEj0Ug7O…`, `$yuIjJo7x` ayant été pris pour une

@@ -8,6 +8,7 @@ form.addEventListener('submit', async (e) => {
   const data = Object.fromEntries(new FormData(form));
   try {
     const r = await fetch('/api/auth/login', {
+      cache: 'no-store',
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(data),

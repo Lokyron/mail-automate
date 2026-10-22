@@ -30,6 +30,8 @@ function toast(message, duree = 3200) {
 
 async function api(chemin, options = {}) {
   const r = await fetch(`/api${chemin}`, {
+    // Ceinture et bretelles : le serveur interdit deja la mise en cache.
+    cache: 'no-store',
     ...options,
     headers: {
       'content-type': 'application/json',
@@ -607,7 +609,7 @@ function suivreMaj() {
     restant -= 1;
     if (restant <= 0) return clearInterval(sondeMaj);
     try {
-      const r = await fetch('/api/update').then((x) => (x.ok ? x.json() : null));
+      const r = await fetch('/api/update', { cache: 'no-store' }).then((x) => (x.ok ? x.json() : null));
       if (!r) return; // redemarrage en cours, on retente
       if (r.etat.state !== 'running') {
         clearInterval(sondeMaj);
@@ -697,7 +699,7 @@ $('#deconnexion').addEventListener('click', async () => {
 });
 
 (async function demarrer() {
-  const me = await fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null));
+  const me = await fetch('/api/auth/me', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null));
   if (!me) return void (location.href = '/login');
   csrf = me.csrf;
 
