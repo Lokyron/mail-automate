@@ -93,11 +93,18 @@ function verifyPassword(password) {
 const LONGUEUR_MINIMALE = 12;
 
 /**
- * Remplace le mot de passe. Toutes les sessions tombent, y compris la mienne :
- * changer de mot de passe doit faire tomber ce qui a ete ouvert avec l'ancien,
- * sinon le geste ne protege de rien.
+ * Remplace le mot de passe.
+ *
+ * Les AUTRES sessions tombent ; celle qui fait le changement SURVIT. La version
+ * precedente fermait tout, y compris la sienne, et renvoyait vers l'ecran de
+ * connexion : il fallait alors se reconnecter juste apres avoir change son mot
+ * de passe. Toute erreur a ce moment-la — un cache, une saisie de l'ancien mot
+ * de passe — ramenait a la case depart, et l'utilisateur tournait en rond.
+ *
+ * On garde la propriete utile (ce qui a ete ouvert avec l'ancien mot de passe
+ * ne vaut plus) sans la consequence genante.
  */
-function changePassword({ actuel, nouveau }) {
+function changePassword({ actuel, nouveau, sessionCourante = null }) {
   if (!verifyPassword(actuel))
     throw Object.assign(new Error('Mot de passe actuel incorrect.'), { status: 403 });
 
@@ -108,9 +115,11 @@ function changePassword({ actuel, nouveau }) {
     throw Object.assign(new Error("Le nouveau mot de passe doit differer de l'ancien."), { status: 400 });
 
   setState(ETAT_HASH, bcrypt.hashSync(mot, 12));
-  const tombees = db.prepare('DELETE FROM sessions').run().changes;
-  log.info(`Mot de passe change ; ${tombees} session(s) fermee(s).`);
-  return { ok: true, sessionsFermees: tombees };
+  const tombees = sessionCourante
+    ? db.prepare('DELETE FROM sessions WHERE id != ?').run(sessionCourante).changes
+    : db.prepare('DELETE FROM sessions').run().changes;
+  log.info(`Mot de passe change ; ${tombees} autre(s) session(s) fermee(s).`);
+  return { ok: true, sessionsFermees: tombees, sessionGardee: Boolean(sessionCourante) };
 }
 
 /** Garde d'acces pour les routes d'API (repond en JSON). */

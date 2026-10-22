@@ -168,3 +168,12 @@ code.sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-siz
 }
 .ecran .carte { width: min(26rem, 94vw); }
 .ecran h2 { margin: 0; }
+
+/* Bandeau d'invitation. Il informe, il ne bloque pas. */
+.bandeau {
+  display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  margin: .75rem 1rem 0; padding: .55rem .8rem;
+  border: 1px solid var(--alerte); border-radius: var(--rayon);
+  color: var(--alerte); font-size: .9rem;
+}
+.bandeau button { padding: .3rem .6rem; font-size: .85rem; }

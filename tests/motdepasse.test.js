@@ -36,14 +36,23 @@ test('reprendre le meme mot de passe est refuse', () => {
   );
 });
 
-test('le changement remplace l amorce et ferme toutes les sessions', () => {
-  session('a'.repeat(64));
+test('le changement garde MA session et ferme les autres', () => {
+  session('a'.repeat(64)); // la mienne
   session('b'.repeat(64));
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 2);
+  session('c'.repeat(64));
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 3);
 
-  const r = auth.changePassword({ actuel: 'motdepasse-amorce', nouveau: 'mon-nouveau-mot-de-passe' });
-  assert.equal(r.sessionsFermees, 2, 'un changement qui laisse les sessions ouvertes ne protege de rien');
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 0);
+  const r = auth.changePassword({
+    actuel: 'motdepasse-amorce',
+    nouveau: 'mon-nouveau-mot-de-passe',
+    sessionCourante: 'a'.repeat(64),
+  });
+  // Ce qui a ete ouvert avec l'ancien mot de passe ne vaut plus...
+  assert.equal(r.sessionsFermees, 2);
+  // ...sauf la mienne : sans cela, changer son mot de passe renvoie a l'ecran
+  // de connexion, et la moindre anicroche fait tourner en rond.
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 1);
+  assert.ok(db.prepare('SELECT 1 FROM sessions WHERE id = ?').get('a'.repeat(64)));
 
   // L'empreinte vit desormais en base : le .env n'ouvre plus.
   assert.equal(auth.verifyPassword('mon-nouveau-mot-de-passe'), true);
@@ -118,4 +127,22 @@ test("les fichiers de l'interface sont revalides, jamais gardes en cache", async
   } finally {
     serveur.close();
   }
+});
+
+test("l'interface ne contient plus aucun ecran bloquant", () => {
+  // La lecon de la journee : un ecran qui occupe tout et ne se ferme que si un
+  // drapeau du serveur retombe peut enfermer son utilisateur dehors. On verifie
+  // donc que le panneau est toujours annulable, et que rien ne depend d'un
+  // « obligatoire ».
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+
+  assert.ok(!/obligatoire/.test(js), 'plus aucune notion de panneau obligatoire');
+  assert.ok(!/annuler-mdp'\)\.hidden = /.test(js), 'le bouton Annuler ne doit jamais etre masque');
+  assert.ok(/bandeau-mdp/.test(js) && /bandeau-mdp/.test(html), 'un bandeau remplace l ecran');
+  assert.ok(/Escape/.test(js), 'Echap doit refermer le panneau');
+  // Et le changement ne renvoie plus vers l'ecran de connexion.
+  assert.ok(!/location\.href = '\/login';[\s\S]{0,80}catch/.test(js), 'pas de retour force a la connexion');
 });

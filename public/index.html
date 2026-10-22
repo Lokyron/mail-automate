@@ -20,6 +20,14 @@
   </div>
 </header>
 
+<!-- Invitation a changer le mot de passe pose a l'installation. Un bandeau,
+     pas une barriere. -->
+<div id="bandeau-mdp" class="bandeau" hidden>
+  <span>Le mot de passe en service est celui posé à l'installation.</span>
+  <button id="bandeau-changer" class="secondaire">Le changer</button>
+  <button id="bandeau-plus-tard" class="discret-btn">Plus tard</button>
+</div>
+
 <section id="mesures" class="mesures"></section>
 
 <nav class="onglets">
@@ -84,9 +92,12 @@
   </div>
 </main>
 
-<!-- Panneau de changement de mot de passe. Bloquant tant que celui de
-     l'installation n'a pas ete remplace : on ne laisse pas une boite mail
-     derriere un mot de passe pose par le script d'installation. -->
+<!-- Panneau de changement de mot de passe. JAMAIS BLOQUANT : il s'ouvre depuis
+     le bandeau ou depuis le bouton d'en-tete, et se referme toujours. Une
+     version precedente occupait tout l'ecran tant qu'un drapeau du serveur
+     n'etait pas retombe — et le moindre grain de sable (un cache, une saisie
+     malheureuse) laissait l'utilisateur enferme dehors. Un bandeau ne peut
+     enfermer personne. -->
 <div id="ecran-mdp" class="ecran" hidden>
   <form id="form-mdp" class="carte connexion">
     <h2 id="titre-mdp">Changer le mot de passe</h2>

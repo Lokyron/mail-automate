@@ -37,11 +37,19 @@ router.get('/me', (req, res) => {
   });
 });
 
-/** Changement de mot de passe. Toutes les sessions tombent ensuite. */
+/**
+ * Changement de mot de passe. Les autres sessions tombent, celle-ci reste :
+ * on ne renvoie pas quelqu'un vers l'ecran de connexion juste apres lui avoir
+ * fait choisir un mot de passe.
+ */
 router.post('/motdepasse', auth.requireAuth, auth.csrfProtect, (req, res) => {
-  const r = auth.changePassword({ actuel: req.body?.actuel, nouveau: req.body?.nouveau });
-  auth.destroySession(req, res);
-  res.json(r);
+  res.json(
+    auth.changePassword({
+      actuel: req.body?.actuel,
+      nouveau: req.body?.nouveau,
+      sessionCourante: req.session.id,
+    })
+  );
 });
 
 module.exports = router;

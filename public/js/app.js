@@ -624,25 +624,23 @@ function suivreMaj() {
 
 /* ------------------------------------------------------------- mot de passe */
 
-let mdpObligatoire = false;
-
-function ouvrirMdp({ obligatoire = false } = {}) {
-  mdpObligatoire = obligatoire;
-  const ecran = $('#ecran-mdp');
-  $('#titre-mdp').textContent = obligatoire ? 'Choisis ton mot de passe' : 'Changer le mot de passe';
-  $('#motif-mdp').textContent = obligatoire
-    ? "Celui en service a été posé par l'installation. Remplace-le avant d'aller plus loin."
-    : 'Toutes les sessions ouvertes seront fermées, y compris celle-ci.';
-  // Rien à annuler quand le changement est imposé.
-  $('#annuler-mdp').hidden = obligatoire;
+function ouvrirMdp() {
+  $('#titre-mdp').textContent = 'Changer le mot de passe';
+  $('#motif-mdp').textContent = 'Les autres sessions ouvertes seront fermées. Celle-ci reste ouverte.';
   $('#erreur-mdp').hidden = true;
   $('#form-mdp').reset();
-  ecran.hidden = false;
+  $('#ecran-mdp').hidden = false;
   $('#form-mdp').actuel.focus();
 }
 
-$('#motdepasse').addEventListener('click', () => ouvrirMdp());
-$('#annuler-mdp').addEventListener('click', () => { $('#ecran-mdp').hidden = true; });
+const fermerMdp = () => { $('#ecran-mdp').hidden = true; };
+
+$('#motdepasse').addEventListener('click', ouvrirMdp);
+$('#bandeau-changer').addEventListener('click', ouvrirMdp);
+$('#annuler-mdp').addEventListener('click', fermerMdp);
+$('#bandeau-plus-tard').addEventListener('click', () => { $('#bandeau-mdp').hidden = true; });
+// Échap ferme toujours : aucune fenêtre de cette application ne retient qui que ce soit.
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fermerMdp(); });
 
 $('#form-mdp').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -660,10 +658,11 @@ $('#form-mdp').addEventListener('submit', async (e) => {
       method: 'POST',
       body: JSON.stringify({ actuel: f.actuel.value, nouveau: f.nouveau.value }),
     });
-    // Le serveur a ferme toutes les sessions : il faut se reconnecter, et
-    // c'est voulu — un changement de mot de passe qui laisse les sessions
-    // ouvertes ne protege de rien.
-    location.href = '/login';
+    // La session courante survit : pas de retour a l'ecran de connexion, donc
+    // aucun risque de tourner en rond.
+    fermerMdp();
+    $('#bandeau-mdp').hidden = true;
+    toast('Mot de passe changé. Les autres sessions ont été fermées.', 6000);
   } catch (ex) {
     erreur.textContent = ex.message;
     erreur.hidden = false;
@@ -703,9 +702,9 @@ $('#deconnexion').addEventListener('click', async () => {
   if (!me) return void (location.href = '/login');
   csrf = me.csrf;
 
-  // Avant tout le reste : si le mot de passe est encore celui de
-  // l'installation, on impose d'en choisir un autre.
-  if (me.doitChanger) return void ouvrirMdp({ obligatoire: true });
+  // Le mot de passe de l'installation est signale par un bandeau, et rien de
+  // plus : l'interface reste utilisable quoi qu'il arrive.
+  $('#bandeau-mdp').hidden = !me.doitChanger;
 
   await chargerRegles();
   await Promise.all([chargerMesures(), chargerListe()]);

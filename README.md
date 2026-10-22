@@ -289,6 +289,15 @@ c'est l'usage normal de cette application.
   d'écriture dans l'interface. 24 tests passent, dont l'invariant « l'agent n'a
   aucun outil d'envoi » et le refus de toute écriture en phase 0. Reste à faire :
   renseigner `.env`, créer le bot auprès de @BotFather, et déployer.
+- **23/10/2026** — **Plus aucun écran bloquant.** Le panneau de mot de passe
+  occupait tout l'écran tant qu'un drapeau du serveur n'était pas retombé, et le
+  changement fermait *toutes* les sessions, y compris la sienne — il fallait donc
+  se reconnecter juste après avoir choisi son mot de passe. Chaque grain de
+  sable sur ce chemin renvoyait à la case départ. Désormais : un **bandeau**
+  qui informe sans barrer la route, un panneau toujours annulable (Échap
+  compris), et la **session courante qui survit** au changement (les autres
+  tombent). Un bandeau ne peut enfermer personne. Un test vérifie qu'aucune
+  notion de panneau « obligatoire » ne revient.
 - **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
   servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
   peut pas laisser un navigateur servir le script de la version précédente —
