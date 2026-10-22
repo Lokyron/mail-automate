@@ -361,6 +361,17 @@ c'est l'usage normal de cette application.
   retenu : l'enveloppe SMTP partait à la bonne adresse, le message en affichait
   une autre. 58 tests passent (17 de plus), dont la preuve par épuisement que
   toutes les coupes possibles d'un fil restent recevables par l'API.
+- **23/10/2026** — **Déployé et vérifié en production** (canal stable, `main` et
+  `beta` au même commit `8358699`). La mise à jour in-app a fait son travail :
+  demande déposée, image reconstruite, bascule, sonde de santé verte, et les
+  **deux migrations jouées au démarrage** — colonne `list_id` ajoutée, règle
+  List-Id passée à l'opérateur « renseigné ». Vérifié sur l'instance : le commit
+  rendu par `/api/health`, `/` et `/index.html` qui redirigent sans session,
+  `/api/auth/me` en 401, le quota qui ne compte que les échecs, la déconnexion
+  sous jeton CSRF, et le script de secours exécutable **dans** le conteneur. Le
+  mot de passe en service et la session ouverte n'ont pas été touchés. Reste
+  inchangé : `IMAP_ENABLED=false`, donc l'application tourne encore à vide côté
+  courrier.
 - **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
   servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
   peut pas laisser un navigateur servir le script de la version précédente —
