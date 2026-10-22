@@ -210,6 +210,24 @@ la sonde de santé**, et remet la version précédente si elle ne vient pas. Il
 écrit sa progression dans `update.status`, que l'onglet relit en acceptant que
 le serveur disparaisse sous ses pieds pendant le redémarrage.
 
+**Une sonde de santé ne dit jamais quel code tourne.** `docker tag` suivi d'un
+`compose up -d` ne suffit pas : compose compare la configuration du service, pas
+l'identifiant de l'image derrière l'étiquette. Configuration inchangée, il
+laisse l'**ancien** conteneur en place — qui se déclare évidemment en bonne
+santé. L'exécuteur force donc la recréation et **compare l'image du conteneur
+qui tourne à celle qu'il vient de construire** ; si elles diffèrent, c'est un
+échec et la version précédente est remise.
+
+⚠️ **L'exécuteur ne se met pas à jour tout seul.** Il vit dans
+`/usr/local/bin/inbox-agent-update`, hors du dossier de l'application : une mise
+à jour in-app rafraîchit `deploy/inbox-agent-update.sh` dans le dossier, mais pas
+la copie installée. Après un changement de l'exécuteur, il faut la reposer à la
+main :
+
+```bash
+install -m 755 /opt/inbox-agent/deploy/inbox-agent-update.sh /usr/local/bin/inbox-agent-update
+```
+
 Deux propriétés à ne pas perdre si ce dispositif est retouché :
 
 **Le conteneur ne voit jamais le socket Docker.** La façon paresseuse de mettre
@@ -385,6 +403,10 @@ c'est l'usage normal de cette application.
   compare l'image du conteneur qui tourne à celle qu'il vient de construire** :
   si elles diffèrent, c'est un échec et la version précédente est remise. Une
   sonde dit « ce conteneur répond », jamais « il porte le bon code ».
+  Déployé et prouvé sur le CT 124 : la mise à jour suivante a bien recréé le
+  conteneur, dont l'image correspond à celle construite, Caddy intact. À
+  retenir pour la prochaine fois : l'exécuteur vivant hors du dossier de
+  l'application, sa copie installée doit être reposée à la main.
 - **22/10/2026** — Suite du même symptôme : `app.js` et `app.css` étaient
   servis avec `max-age=1h`. Une application qui se met à jour toute seule ne
   peut pas laisser un navigateur servir le script de la version précédente —
