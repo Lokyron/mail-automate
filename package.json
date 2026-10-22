@@ -1,0 +1,30 @@
+{
+  "name": "inbox-agent",
+  "version": "0.1.0",
+  "description": "Tri et redaction assistes de la boite mail personnelle. Phase 0 : lecture seule, aucune ecriture dans la boite.",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.js",
+    "hash": "node scripts/hash-password.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "iconv-lite": "^0.7.3",
+    "imapflow": "^2.0.5",
+    "nodemailer": "^7.0.5",
+    "sanitize-html": "^2.17.0"
+  }
+}

@@ -1,0 +1,22 @@
+# Execute la mise a jour une fois, en root. Lance par inbox-agent-update.path,
+# jamais par l'application elle-meme.
+[Unit]
+Description=Mettre a jour Inbox Agent
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/inbox-agent-update
+Environment=APP_DIR=/opt/inbox-agent
+Environment=DATA_DIR=/var/lib/inbox-agent
+Environment=CONTENEUR=inbox-agent
+Environment=IMAGE=inbox-agent
+Environment=APP_UID=1000
+Environment=UPDATE_REPO=Lokyron/mail-automate
+Environment=UPDATE_BRANCH=main
+# La branche installee par le canal beta. La laisser vide pour n'offrir que stable.
+Environment=UPDATE_BETA_BRANCH=beta
+# Delai laisse au conteneur pour se declarer en bonne sante avant retour arriere.
+Environment=ATTENTE_SANTE=120

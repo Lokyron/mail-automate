@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox Agent</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header>
+  <div class="titre">
+    <h1>Inbox Agent</h1>
+    <span id="phase" class="badge">…</span>
+  </div>
+  <div class="actions">
+    <button id="relever" class="secondaire">Relever</button>
+    <button id="rediger" class="secondaire">Rédiger les brouillons en attente</button>
+    <button id="deconnexion" class="discret-btn">Quitter</button>
+  </div>
+</header>
+
+<section id="mesures" class="mesures"></section>
+
+<nav class="onglets">
+  <button data-vue="attente" class="actif">À juger</button>
+  <button data-vue="tout">Tous les messages</button>
+  <button data-vue="regles">Règles</button>
+  <button data-vue="agent">Agent</button>
+  <button data-vue="maj">Mises à jour</button>
+</nav>
+
+<main>
+  <div id="vue-messages" class="colonnes">
+    <ul id="liste" class="liste"></ul>
+    <article id="detail" class="detail vide">
+      <p class="discret">Choisis un message à gauche.</p>
+    </article>
+  </div>
+
+  <div id="vue-agent" hidden>
+    <div id="fil-agent" class="carte fil"></div>
+    <form id="form-agent" class="ligne-form">
+      <input name="question" placeholder="De quoi parlait le dernier mail de Lucie ? Reformule le brouillon en plus court…" autocomplete="off" required>
+      <button type="submit">Demander</button>
+      <button type="button" id="oublier" class="discret-btn">Oublier le fil</button>
+    </form>
+    <p class="discret">
+      L'agent cherche, lit et réécrit. Il ne peut pas envoyer : il prépare, je confirme.
+    </p>
+  </div>
+
+  <div id="vue-maj" hidden>
+    <div id="carte-maj" class="carte"></div>
+  </div>
+
+  <div id="vue-regles" hidden>
+    <form id="form-regle" class="carte ligne-form">
+      <select name="champ">
+        <option value="from_email">Expéditeur</option>
+        <option value="subject">Objet</option>
+        <option value="body_text">Corps</option>
+        <option value="to_text">Destinataire</option>
+        <option value="list_id">En-tête List-Id</option>
+      </select>
+      <select name="operateur">
+        <option value="contient">contient</option>
+        <option value="commence">commence par</option>
+        <option value="finit">finit par</option>
+        <option value="egal">est exactement</option>
+        <option value="regex">correspond à (regex)</option>
+      </select>
+      <input name="valeur" placeholder="valeur" required>
+      <select name="label" id="labels-regle"></select>
+      <select name="priorite">
+        <option value="normale">normale</option>
+        <option value="haute">haute</option>
+        <option value="basse">basse</option>
+      </select>
+      <label class="case"><input type="checkbox" name="repondre"> à répondre</label>
+      <button type="submit">Ajouter</button>
+    </form>
+    <table id="table-regles" class="table"></table>
+  </div>
+</main>
+
+<p id="toast" class="toast" hidden></p>
+<script src="/js/app.js"></script>
+</body>
+</html>

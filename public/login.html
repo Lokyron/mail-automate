@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox Agent — Connexion</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="centre">
+  <form id="form" class="carte connexion">
+    <h1>Inbox Agent</h1>
+    <p class="discret">Tri et rédaction assistés. Lecture seule.</p>
+    <label>Identifiant<input name="user" autocomplete="username" required autofocus></label>
+    <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Se connecter</button>
+    <p id="erreur" class="erreur" hidden></p>
+  </form>
+<script src="/js/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Unite systemd. A deposer dans /etc/systemd/system/ puis :
+#   systemctl daemon-reload && systemctl enable --now inbox-agent
+[Unit]
+Description=Inbox Agent — tri et redaction assistes du courrier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Service NON PRIVILEGIE : useradd --system --shell /usr/sbin/nologin inbox
+User=inbox
+Group=inbox
+WorkingDirectory=/opt/inbox-agent
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+# Durcissement : le service n'a besoin que de son dossier de donnees.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/inbox-agent/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+# Le fichier .env contient le mot de passe de la boite : lisible du seul service.
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

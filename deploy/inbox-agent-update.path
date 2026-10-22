@@ -1,0 +1,11 @@
+# Surveille le fichier que l'application depose quand on presse le bouton de
+# mise a jour, et lance l'executeur.
+[Unit]
+Description=Surveille une demande de mise a jour d'Inbox Agent
+
+[Path]
+PathExists=/var/lib/inbox-agent/update.request
+Unit=inbox-agent-update.service
+
+[Install]
+WantedBy=paths.target

@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# Inbox Agent. Demarrage : ./install.sh (ou docker compose up -d si .env existe)
+# ---------------------------------------------------------------------------
+services:
+  app:
+    build: .
+    image: inbox-agent:latest
+    container_name: inbox-agent
+    restart: unless-stopped
+    # Node tourne en PID 1 : `init` fournit le ramasse-miettes de processus
+    # orphelins que PID 1 doit assurer.
+    init: true
+
+    env_file: .env
+
+    # Ces trois valeurs ECRASENT celles du .env, volontairement : `environment`
+    # a la priorite sur `env_file`. Le .env est ecrit pour une installation
+    # directe, ou HOST=127.0.0.1 est la bonne valeur ; dans un conteneur, cette
+    # meme valeur rendrait l'application injoignable.
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8090
+      DB_PATH: /app/data/inbox-agent.db
+
+    # Publie sur la BOUCLE LOCALE de l'hote seulement. Une application qui
+    # detient le mot de passe d'une boite mail personnelle n'a rien a exposer
+    # sur le reseau : l'acces distant passe par le profil « tls » ci-dessous,
+    # ou par un reverse proxy deja en place.
+    ports:
+      - "127.0.0.1:${PORT_HOTE:-8090}:8090"
+
+    volumes:
+      # La base, son journal WAL, et les fichiers d'echange avec l'executeur de
+      # mise a jour (update.request, update.status, VERSION).
+      #
+      # MONTAGE LIE et non volume nomme, volontairement : l'executeur tourne sur
+      # l'HOTE, et l'unite systemd qui le declenche doit pouvoir voir apparaitre
+      # le fichier de demande. Un volume nomme le cacherait dans
+      # /var/lib/docker/volumes, ou aucune unite `path` ne le surveille
+      # proprement. Le dossier doit appartenir a l'uid 1000 (cf. install.sh).
+      #
+      # Il vit DEHORS du dossier de l'application : l'executeur remplace ce
+      # dernier par un renommage, et la base ne doit pas partir avec.
+      - ${DATA_DIR:-./data}:/app/data
+
+    # Durcissement : le conteneur n'a besoin d'ecrire que dans son volume.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Profil optionnel : HTTPS sur le reseau local, certificat auto-signe.
+  #   docker compose --profile tls up -d
+  # A n'activer que pour atteindre l'interface depuis un telephone. Le bot
+  # Telegram, lui, n'a besoin d'aucun port entrant.
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: inbox-agent-caddy
+    restart: unless-stopped
+    profiles: ["tls"]
+    depends_on: [app]
+    ports:
+      - "${PORT_HTTPS:-8443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
