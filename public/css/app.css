@@ -1,4 +1,30 @@
 /* Interface de revue. Une seule feuille, aucune dependance distante. */
+
+/**
+ * `hidden` DOIT cacher. A lire avant de retirer le `!important`.
+ *
+ * L'attribut HTML `hidden` n'agit que par la regle `[hidden] { display: none }`
+ * de la feuille du NAVIGATEUR. Or une regle de la feuille de l'AUTEUR l'emporte
+ * toujours sur celle du navigateur, quelle que soit sa specificite : il a suffi
+ * d'ecrire `.ecran { display: grid }` pour que `element.hidden = true` ne fasse
+ * plus rien du tout.
+ *
+ * Ce que cela a donne, en vrai, pendant une journee entiere : le panneau de
+ * changement de mot de passe s'affichait des l'ouverture de l'application et ne
+ * se refermait JAMAIS — ni par « Annuler », ni par Echap, ni apres un
+ * changement reussi. On voyait le message de succes (`.toast` n'a pas de
+ * `display`, donc lui obeissait) a travers le flou du panneau qui restait
+ * barrer l'ecran. Le JavaScript etait juste, le serveur repondait juste, et
+ * l'interface etait inutilisable. Trois commits avaient deja tente de reparer
+ * « l'ecran bloquant » en touchant au JS et au HTML, sans jamais regarder la
+ * feuille de style.
+ *
+ * La regle est donc posee UNE fois, en tete, et vaut pour tout element a venir.
+ * `!important` est ici le moyen correct : il remet l'attribut au-dessus de
+ * toute declaration `display` d'une classe, presente ou future.
+ */
+[hidden] { display: none !important; }
+
 :root {
   --fond: #f6f7f9;
   --carte: #ffffff;

@@ -390,6 +390,32 @@ c'est l'usage normal de cette application.
   mot de passe en service et la session ouverte n'ont pas été touchés. Reste
   inchangé : `IMAP_ENABLED=false`, donc l'application tourne encore à vide côté
   courrier.
+- **23/10/2026** — **`hidden` ne cachait rien, et c'était toute l'affaire.**
+  Le panneau de mot de passe s'affichait dès l'ouverture de l'application et ne
+  se refermait **jamais** — ni par « Annuler », ni par Échap, ni après un
+  changement réussi. On voyait le message de succès à travers le flou du
+  panneau resté en place, et l'application était inutilisable.
+
+  La cause tenait en une ligne absente. L'attribut HTML `hidden` n'agit que par
+  la règle `[hidden] { display: none }` de la feuille du **navigateur**, et une
+  règle de la feuille de l'**auteur** l'emporte toujours sur celle du
+  navigateur, quelle que soit sa spécificité. Il avait suffi d'écrire
+  `.ecran { display: grid }` pour que `element.hidden = true` ne fasse plus
+  rien. Le `.toast`, lui, n'avait pas de `display` : il obéissait — d'où le
+  symptôme déroutant, un message de succès bien visible derrière un panneau qui
+  refusait de partir. Corrigé par `[hidden] { display: none !important; }` posé
+  une fois en tête de feuille.
+
+  Ce qui mérite d'être retenu, c'est comment c'est passé **trois fois**. Trois
+  commits ont tenté de réparer « l'écran bloquant » en retouchant le JavaScript
+  et le HTML, sans jamais ouvrir la feuille de style. Et un test veillait,
+  « l'interface ne contient plus aucun écran bloquant » : il cherchait le mot
+  « obligatoire » dans le JS et un bandeau dans le HTML. Il était au vert
+  pendant que l'interface était inutilisable, parce qu'il lisait du **texte**
+  au lieu de vérifier un **comportement**. Un test qui ne peut pas échouer pour
+  la vraie raison est pire que pas de test : il rassure. Le nouveau
+  (`tests/interface.test.js`) vérifie la règle de cascade elle-même, et il a été
+  éprouvé en la retirant — il échoue, avec le bon motif.
 - **23/10/2026** — **Une mise à jour pouvait se déclarer réussie sans avoir rien
   remplacé.** Trouvé en vérifiant le déploiement précédent : `VERSION`
   annonçait le nouveau commit, l'étiquette `latest` pointait la nouvelle image,
