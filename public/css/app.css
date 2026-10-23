@@ -136,7 +136,7 @@ textarea {
   border-radius: var(--rayon); border: 1px solid var(--bord);
   background: var(--fond); color: var(--texte); resize: vertical;
 }
-select, input[type=text], input:not([type]) {
+select, input[type=text], input[type=password], input[type=number], input[type=email], input:not([type]) {
   font: inherit; padding: .4rem .5rem; border-radius: var(--rayon);
   border: 1px solid var(--bord); background: var(--fond); color: var(--texte);
 }
@@ -203,3 +203,40 @@ code.sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-siz
   color: var(--alerte); font-size: .9rem;
 }
 .bandeau button { padding: .3rem .6rem; font-size: .85rem; }
+
+/* Onglet Parametres */
+.reglages { display: flex; flex-direction: column; gap: 1rem; }
+.groupe-reglage { display: flex; flex-direction: column; gap: .8rem; }
+.groupe-reglage > h2 { margin: 0; }
+.groupe-reglage > .motif { margin: -.4rem 0 .2rem; }
+
+.reglage { display: flex; flex-direction: column; gap: .3rem; max-width: 34rem; }
+.reglage > label { font-size: .88rem; }
+.reglage input[type=text], .reglage input[type=password], .reglage input[type=number],
+.reglage select, .reglage textarea { width: 100%; }
+.reglage .motif { margin: 0; }
+
+.reglage-entete { display: flex; align-items: center; gap: .5rem; justify-content: space-between; }
+
+/* D'ou vient la valeur en service. Une precedence invisible enferme : celle-ci
+   se lit sur chaque champ. */
+.pastille {
+  font-size: .68rem; padding: .1rem .4rem; border-radius: 99px;
+  border: 1px solid var(--bord); color: var(--discret); white-space: nowrap;
+}
+.pastille.modifie { border-color: var(--accent); color: var(--accent); }
+
+.avance > summary { cursor: pointer; font-size: .85rem; color: var(--discret); margin-bottom: .6rem; }
+.avance[open] > summary { margin-bottom: .8rem; }
+.avance { display: flex; flex-direction: column; gap: .8rem; }
+
+.barre-reglages {
+  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  position: sticky; bottom: .5rem;
+}
+.barre-reglages .discret { font-size: .82rem; }
+
+.avis-reglages { border-color: var(--alerte); }
+.avis-reglages h2 { color: var(--alerte); }
+.liste-avis { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+.liste-avis li { font-size: .88rem; }

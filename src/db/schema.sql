@@ -193,3 +193,18 @@ CREATE TABLE IF NOT EXISTS chat_turns (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_chat_salon ON chat_turns(plateforme, chat_id, id DESC);
+
+-- Reglages modifiables depuis l'interface.
+--
+-- Ils vivent EN BASE et non dans le .env, pour la meme raison que l'empreinte du
+-- mot de passe : le conteneur tourne en lecture seule et ne peut pas reecrire son
+-- propre .env. Le .env reste l'amorce ; ce qui est pose ici l'emporte.
+--
+-- `secret = 1` : la valeur est chiffree (AES-256-GCM). Elle n'est JAMAIS renvoyee
+-- a l'interface, dans aucune reponse, sous aucune forme.
+CREATE TABLE IF NOT EXISTS settings (
+  cle     TEXT PRIMARY KEY,
+  valeur  TEXT NOT NULL,
+  secret  INTEGER NOT NULL DEFAULT 0,
+  maj_le  TEXT NOT NULL
+);

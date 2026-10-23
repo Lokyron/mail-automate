@@ -179,6 +179,24 @@ async function envoyer(draftId, jeton) {
   return { envoye: true, messageId: info.messageId, envoisRestants: config.smtp.dailyLimit - envoisDuJour() };
 }
 
+/**
+ * Oublie la connexion d'envoi gardee en memoire.
+ *
+ * `transporteur()` met son resultat en cache : sans cet oubli, changer le
+ * compte ou le mot de passe d'envoi dans Parametres ne changeait rien — les
+ * messages continuaient de partir par l'ancienne connexion jusqu'au prochain
+ * redemarrage.
+ */
+function reinitialiser() {
+  if (transport) {
+    try {
+      transport.close();
+    } catch { /* deja fermee */ }
+  }
+  transport = null;
+  log.info('Envoi : connexion SMTP oubliee, la prochaine sera rouverte avec les reglages courants.');
+}
+
 /** Purge des jetons expires. */
 function purger() {
   const maintenant = Date.now();
@@ -201,4 +219,4 @@ function status() {
   };
 }
 
-module.exports = { preparerEnvoi, envoyer, purger, testConnection, status };
+module.exports = { preparerEnvoi, envoyer, purger, reinitialiser, testConnection, status };

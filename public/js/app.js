@@ -622,6 +622,208 @@ function suivreMaj() {
   }, 5000);
 }
 
+/* ----------------------------------------------------------------- reglages */
+
+/**
+ * Onglet Parametres.
+ *
+ * Deux regles tenues ici, et elles se voient a l'ecran :
+ *  - UN CHAMP DE SECRET NE REAFFICHE JAMAIS SA VALEUR. Le serveur ne l'envoie
+ *    pas ; le champ part vide et ne sert qu'a remplacer. On montre seulement
+ *    « renseigne » et les quatre derniers caracteres, de quoi reconnaitre une
+ *    clef collee de travers.
+ *  - ON DIT TOUJOURS D'OU VIENT LA VALEUR EN SERVICE. Une pastille « .env » ou
+ *    « modifié ici » sur chaque champ : la lecon du mot de passe, ou une
+ *    precedence invisible avait enferme son utilisateur dehors.
+ */
+function champReglage(r) {
+  const ligne = el('div', 'reglage');
+
+  const entete = el('div', 'reglage-entete');
+  entete.append(el('label', null, r.libelle));
+  const pastille = el('span', `pastille ${r.source === 'base' ? 'modifie' : 'env'}`,
+    r.source === 'base' ? 'modifié ici' : '.env');
+  pastille.title = r.source === 'base'
+    ? `Posé depuis cette page${r.majLe ? ` le ${dateCourte(r.majLe)}` : ''}. Vider le champ pour rendre la main au .env.`
+    : 'Valeur du fichier .env. Elle sert tant que rien n’est posé ici.';
+  entete.append(pastille);
+  ligne.append(entete);
+
+  let saisie;
+  if (r.type === 'booleen') {
+    saisie = el('input');
+    saisie.type = 'checkbox';
+    saisie.checked = r.valeur === 'true';
+    const etiquette = el('label', 'case');
+    etiquette.append(saisie, el('span', null, saisie.checked ? 'activé' : 'désactivé'));
+    saisie.addEventListener('change', () => {
+      etiquette.lastChild.textContent = saisie.checked ? 'activé' : 'désactivé';
+    });
+    ligne.append(etiquette);
+  } else if (r.type === 'choix') {
+    saisie = el('select');
+    for (const c of r.choix) {
+      const o = el('option', null, c);
+      o.value = c;
+      if (c === r.valeur) o.selected = true;
+      saisie.append(o);
+    }
+    ligne.append(saisie);
+  } else if (r.type === 'texte-long') {
+    saisie = el('textarea');
+    saisie.value = r.valeur || '';
+    saisie.style.minHeight = '5rem';
+    ligne.append(saisie);
+  } else {
+    saisie = el('input');
+    saisie.type = r.type === 'secret' ? 'password' : r.type === 'nombre' || r.type === 'decimal' ? 'number' : 'text';
+    if (r.type === 'decimal') saisie.step = '0.05';
+    if (r.type === 'secret') {
+      saisie.value = '';
+      saisie.autocomplete = 'new-password';
+      saisie.placeholder = r.renseigne ? `renseigné (${r.apercu}) — saisir pour remplacer` : 'non renseigné';
+    } else {
+      saisie.value = r.valeur || '';
+      if (r.exemple) saisie.placeholder = r.exemple;
+    }
+    ligne.append(saisie);
+  }
+
+  saisie.name = r.cle;
+  saisie.dataset.type = r.type;
+  if (r.aide) ligne.append(el('p', 'motif', r.aide));
+  return ligne;
+}
+
+async function chargerReglages() {
+  const carte = $('#carte-reglages');
+  carte.replaceChildren(el('p', 'discret', 'Chargement…'));
+  const etat = await api('/reglages');
+  if (!etat) return;
+
+  const form = el('form', 'reglages');
+  const avances = [];
+
+  // Ce qui empeche un service de tourner, en tete : un service a l'arret doit
+  // le dire a l'endroit ou cela se corrige.
+  if (etat.avertissements?.length) {
+    const avis = el('section', 'carte avis-reglages');
+    avis.append(el('h2', null, 'À régler pour que tout fonctionne'));
+    const liste = el('ul', 'liste-avis');
+    for (const a of etat.avertissements) {
+      const li = el('li');
+      li.append(el('b', null, `${a.service} — `), document.createTextNode(a.message));
+      liste.append(li);
+    }
+    avis.append(liste);
+    form.append(avis);
+  }
+
+  for (const g of etat.groupes) {
+    const dedans = etat.reglages.filter((r) => r.groupe === g.id);
+    if (!dedans.length) continue;
+
+    const bloc = el('section', 'carte groupe-reglage');
+    bloc.append(el('h2', null, g.titre));
+    if (g.aide) bloc.append(el('p', 'motif', g.aide));
+
+    for (const r of dedans.filter((x) => !x.avance)) bloc.append(champReglage(r));
+
+    const cachesIci = dedans.filter((x) => x.avance);
+    if (cachesIci.length) {
+      const repli = el('details', 'avance');
+      repli.append(el('summary', null, `Réglages avancés (${cachesIci.length})`));
+      for (const r of cachesIci) repli.append(champReglage(r));
+      bloc.append(repli);
+      avances.push(repli);
+    }
+
+    // Les essais de connexion existent deja cote serveur : on les offre la ou
+    // ils servent, a cote des champs qu'ils eprouvent.
+    const essai = { boite: '/system/test/imap', modele: '/system/test/modele', envoi: '/system/test/smtp' }[g.id];
+    if (essai) {
+      const b = el('button', 'secondaire', 'Tester la connexion');
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        const avant = b.textContent;
+        b.textContent = 'Essai…';
+        try {
+          const r = await api(essai);
+          toast(`${g.titre} : connexion établie. ${JSON.stringify(r).slice(0, 120)}`, 6000);
+        } catch (ex) {
+          toast(`${g.titre} : ${ex.message}`, 9000);
+        } finally {
+          b.disabled = false;
+          b.textContent = avant;
+        }
+      });
+      const rangee = el('div', 'rangee');
+      rangee.append(b);
+      bloc.append(rangee);
+    }
+    form.append(bloc);
+  }
+
+  // Ce qui se montre sans se regler, avec la raison : une page de parametres
+  // qui tait ce qu'elle ne peut pas faire laisse chercher un interrupteur qui
+  // n'existe pas.
+  if (etat.lectureSeule?.length) {
+    const bloc = el('section', 'carte groupe-reglage');
+    bloc.append(el('h2', null, 'Réglé en dehors de l’interface'));
+    const table = el('table', 'table');
+    for (const x of etat.lectureSeule) {
+      const tr = el('tr');
+      tr.append(el('td', null, x.libelle));
+      tr.append(el('td', null, x.valeur));
+      tr.append(el('td', 'discret', x.motif));
+      table.append(tr);
+    }
+    bloc.append(table);
+    form.append(bloc);
+  }
+
+  const barre = el('div', 'carte barre-reglages');
+  const enregistrer = el('button', null, 'Enregistrer');
+  enregistrer.type = 'submit';
+  barre.append(enregistrer);
+  barre.append(el('span', 'discret',
+    'Vider un champ le rend à la valeur du .env. Les secrets ne sont jamais réaffichés.'));
+  form.append(barre);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const valeurs = {};
+    for (const champ of form.querySelectorAll('[name]')) {
+      const type = champ.dataset.type;
+      if (type === 'booleen') valeurs[champ.name] = champ.checked ? 'true' : 'false';
+      else if (type === 'secret') {
+        // Un champ de secret laisse vide ne veut PAS dire « efface-le » : il
+        // veut dire « je n'y touche pas ». Sans cette distinction, ouvrir la
+        // page et enregistrer effacerait le mot de passe de la boite.
+        if (champ.value) valeurs[champ.name] = champ.value;
+      } else valeurs[champ.name] = champ.value;
+    }
+
+    enregistrer.disabled = true;
+    enregistrer.textContent = 'Enregistrement…';
+    try {
+      const r = await api('/reglages', { method: 'PUT', body: JSON.stringify({ valeurs }) });
+      const repris = r.repris?.length ? ` Repris : ${r.repris.join(', ')}.` : '';
+      toast(`Réglages enregistrés.${repris}`, 7000);
+      await chargerReglages();
+      await chargerMesures();
+    } catch (ex) {
+      toast(ex.message, 9000);
+    } finally {
+      enregistrer.disabled = false;
+      enregistrer.textContent = 'Enregistrer';
+    }
+  });
+
+  carte.replaceChildren(form);
+}
+
 /* ------------------------------------------------------------- mot de passe */
 
 function ouvrirMdp() {
@@ -679,9 +881,11 @@ document.querySelectorAll('.onglets button').forEach((b) => {
     $('#vue-regles').hidden = vue !== 'regles';
     $('#vue-agent').hidden = vue !== 'agent';
     $('#vue-maj').hidden = vue !== 'maj';
-    $('#vue-messages').hidden = ['regles', 'agent', 'maj'].includes(vue);
+    $('#vue-reglages').hidden = vue !== 'reglages';
+    $('#vue-messages').hidden = ['regles', 'agent', 'maj', 'reglages'].includes(vue);
     if (vue === 'regles') chargerRegles();
     else if (vue === 'maj') chargerMaj();
+    else if (vue === 'reglages') chargerReglages();
     else if (vue !== 'agent') chargerListe();
   });
 });

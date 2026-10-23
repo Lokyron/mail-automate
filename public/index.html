@@ -36,6 +36,7 @@
   <button data-vue="regles">Règles</button>
   <button data-vue="agent">Agent</button>
   <button data-vue="maj">Mises à jour</button>
+  <button data-vue="reglages">Paramètres</button>
 </nav>
 
 <main>
@@ -56,6 +57,10 @@
     <p class="discret">
       L'agent cherche, lit et réécrit. Il ne peut pas envoyer : il prépare, je confirme.
     </p>
+  </div>
+
+  <div id="vue-reglages" hidden>
+    <div id="carte-reglages"></div>
   </div>
 
   <div id="vue-maj" hidden>

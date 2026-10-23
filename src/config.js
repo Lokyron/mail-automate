@@ -247,7 +247,22 @@ const config = {
   },
 };
 
-/** Verifications bloquantes au demarrage. */
+/**
+ * Verifications bloquantes au demarrage.
+ *
+ * NE SONT FATALES QUE LES CONDITIONS QUI RENDENT L'ACCES IMPOSSIBLE. Depuis que
+ * les reglages se modifient dans l'onglet Parametres, tout ce qui concerne un
+ * SERVICE (la boite, l'envoi, le salon) est descendu dans `avertissements()` :
+ * un reglage de service incomplet empeche ce service de demarrer, et rien de
+ * plus.
+ *
+ * La raison est celle qu'on a deja payee avec le mot de passe. Activer la
+ * releve puis vider le mot de passe d'application — deux clics dans la page —
+ * suffisait a ce que l'application refuse de redemarrer. Elle devenait alors
+ * injoignable, donc impossible a corriger par la page meme qui sert a cela, et
+ * il fallait revenir a la ligne de commande. Une interface de reglages ne doit
+ * jamais pouvoir se condamner elle-meme.
+ */
 function validate() {
   const fatals = [];
   if (!config.session.secret || config.session.secret.length < 32)
@@ -263,24 +278,37 @@ function validate() {
         'Les dedoubler ($2b$$12$$...), ou relancer install.sh qui le fait.'
     );
   }
-  if (config.imap.enabled && (!config.imap.user || !config.imap.pass))
-    fatals.push('IMAP_ENABLED=true mais IMAP_USER / IMAP_PASS absents.');
   if (!['claude', 'gemini'].includes(config.llm.provider))
     fatals.push(`LLM_PROVIDER inconnu : ${config.llm.provider} (claude ou gemini).`);
-
-  // Un bot sans liste blanche serait une porte ouverte sur la boite mail : le
-  // demarrage est refuse plutot que de laisser l'application tourner ainsi.
-  if (config.bot.enabled) {
-    if (!config.bot.token) fatals.push('BOT_ENABLED=true mais TELEGRAM_BOT_TOKEN absent.');
-    if (!config.bot.chatId.length)
-      fatals.push('BOT_ENABLED=true mais TELEGRAM_CHAT_ID absent : le salon doit etre une liste blanche.');
-  }
-  // L'envoi exige le verrou ouvert ET des identifiants : mieux vaut le dire au
-  // demarrage que de le decouvrir au moment d'envoyer.
-  if (config.ecriture.autorisee && (!config.smtp.user || !config.smtp.pass))
-    fatals.push("WRITE_ENABLED=true mais SMTP_USER / SMTP_PASS absents : l'envoi serait impossible.");
 
   return fatals;
 }
 
-module.exports = { config, validate, bool, int, list };
+/**
+ * Ce qui empeche un SERVICE de tourner, sans empecher l'application de
+ * demarrer. Montre tel quel dans l'onglet Parametres, pour qu'un service a
+ * l'arret dise pourquoi au lieu de se taire.
+ */
+function avertissements() {
+  const avis = [];
+  if (config.imap.enabled && (!config.imap.user || !config.imap.pass))
+    avis.push({ service: 'Boîte mail', message: "La relève est activée mais l'adresse ou le mot de passe d'application manque : rien ne sera relevé." });
+  if (!config.imap.enabled)
+    avis.push({ service: 'Boîte mail', message: "La relève est désactivée : l'application tourne à vide." });
+  if (!config.llm[config.llm.provider]?.apiKey)
+    avis.push({ service: 'Modèle', message: `Aucune clef d'API pour « ${config.llm.provider} » : ni tri ni rédaction ne sont possibles.` });
+
+  // Un bot sans liste blanche serait une porte ouverte sur une boite mail. Il
+  // ne demarre pas (cf. services/bot/index.js) ; on dit pourquoi.
+  if (config.bot.enabled) {
+    if (!config.bot.token) avis.push({ service: 'Salon', message: 'Le salon est activé mais le jeton du bot manque : il ne démarrera pas.' });
+    if (!config.bot.chatId.length)
+      avis.push({ service: 'Salon', message: 'Le salon est activé mais aucun identifiant autorisé n\'est déclaré. Le salon est une liste blanche : sans elle, il ne démarre pas.' });
+  }
+  if (config.ecriture.autorisee && (!config.smtp.user || !config.smtp.pass))
+    avis.push({ service: 'Envoi', message: "L'écriture est autorisée mais les identifiants d'envoi manquent : aucun message ne pourra partir." });
+
+  return avis;
+}
+
+module.exports = { config, validate, avertissements, bool, int, list };

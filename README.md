@@ -56,6 +56,36 @@ docker compose down            # arrêter (le volume de données survit)
 docker compose pull && docker compose up -d --build   # mettre à jour
 ```
 
+### Onglet Paramètres
+
+Presque tout se règle depuis l'interface : adresse de la boîte et **mot de passe
+d'application Google**, clef d'API du modèle, envoi SMTP, tri automatique,
+courrier mis hors de portée du modèle, salon Telegram. Le `.env` reste l'amorce
+— ce qui est posé dans la page l'emporte, et **vider un champ rend la main au
+`.env`**.
+
+Trois choses à savoir :
+
+- **Les réglages vivent en base, pas dans le `.env`.** Le conteneur tourne en
+  lecture seule et ne peut pas réécrire le fichier qui l'a démarré.
+- **Les secrets sont chiffrés** (AES-256-GCM, clef dérivée de `SESSION_SECRET`)
+  et **ne ressortent jamais** : aucune réponse de l'API ne les contient, le
+  champ part vide et ne sert qu'à remplacer. On n'en voit que les quatre
+  derniers caractères. Corollaire : changer `SESSION_SECRET` rend les secrets
+  déjà rangés illisibles — il faut les resaisir, et l'application le dit au
+  journal plutôt que de refuser de démarrer.
+- **Chaque champ dit d'où vient sa valeur** (`.env` ou « modifié ici »). Une
+  précédence invisible finit toujours par enfermer quelqu'un.
+
+Ce qui **ne** se règle **pas** là, délibérément : `WRITE_ENABLED` (le verrou
+d'écriture — ouvrir l'écriture sur une boîte mail est une décision qui se prend
+sur la machine, pas un interrupteur à portée de clic ; l'onglet l'affiche en
+lecture seule), ainsi que `SESSION_SECRET`, les réglages du compte, du réseau et
+de la mise à jour. Un réglage qui peut couper la main qui le règle n'a rien à
+faire dans une interface — et pour la même raison, un réglage de service
+incomplet n'empêche plus le démarrage : il empêche ce service-là de tourner, et
+l'onglet dit pourquoi.
+
 ### Mot de passe oublié, ou à reprendre en main
 
 L'empreinte du mot de passe vit **en base** dès le premier changement fait dans
@@ -275,7 +305,7 @@ cacherait dans `/var/lib/docker/volumes`. Le dossier doit appartenir à l'uid
 npm test
 ```
 
-58 tests, sans réseau ni base de travail : chaque fichier ouvre sa propre base
+73 tests, sans réseau ni base de travail : chaque fichier ouvre sa propre base
 jetable. Ils portent sur les invariants qui coûteraient cher à redécouvrir — le
 verrou d'écriture, l'absence d'outil d'envoi chez l'agent, les deux temps de
 l'envoi, la porte de sortie du mot de passe, et le fait qu'un historique de
@@ -390,6 +420,31 @@ c'est l'usage normal de cette application.
   mot de passe en service et la session ouverte n'ont pas été touchés. Reste
   inchangé : `IMAP_ENABLED=false`, donc l'application tourne encore à vide côté
   courrier.
+- **23/10/2026** — **Onglet Paramètres.** Le mot de passe d'application Google,
+  la clef d'API du modèle, l'envoi, le tri, le courrier confidentiel et le salon
+  se règlent désormais depuis l'interface, sans toucher au `.env` ni redémarrer :
+  les valeurs sont posées sur l'objet `config` à chaud, et les services qui
+  gardent un état ouvert (relève IMAP, connexion SMTP, salon) sont repris tout
+  seuls. Les réglages vivent **en base** — le conteneur est en lecture seule et
+  ne peut pas réécrire son `.env` — et les secrets y sont **chiffrés**
+  (AES-256-GCM) sans jamais ressortir : le champ part vide, on n'en voit que les
+  quatre derniers caractères. Chaque champ porte une pastille disant d'où vient
+  la valeur en service, `.env` ou « modifié ici » : c'est la leçon du mot de
+  passe, où une précédence invisible avait enfermé son utilisateur dehors.
+
+  Deux pièges fermés en chemin, tous deux du même genre que ceux déjà payés.
+  Un : `config.js` cuit un repli « SMTP_USER à défaut IMAP_USER » dans sa valeur
+  de départ ; photographier cette valeur comme amorce y figeait le compte, si
+  bien que vider le champ d'envoi ne rendait pas la main au repli mais à une
+  vieille valeur. Deux, et c'est le plus important : `validate()` arrêtait le
+  processus si la relève était activée sans identifiants — soit deux clics dans
+  la page pour rendre l'application injoignable, donc impossible à corriger par
+  la page même qui sert à cela. Tout ce qui concerne un **service** est devenu un
+  avertissement, montré en tête de l'onglet ; seul ce qui rend l'accès impossible
+  reste fatal. La garde du salon (liste blanche obligatoire) n'a pas disparu,
+  elle a changé d'endroit : le bot ne démarre pas, et rien d'autre n'est
+  condamné. 73 tests, dont « un secret ne ressort jamais » et « une interface de
+  réglages ne doit jamais pouvoir se condamner elle-même ».
 - **23/10/2026** — **`hidden` ne cachait rien, et c'était toute l'affaire.**
   Le panneau de mot de passe s'affichait dès l'ouverture de l'application et ne
   se refermait **jamais** — ni par « Annuler », ni par Échap, ni après un

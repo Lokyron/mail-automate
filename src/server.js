@@ -10,7 +10,7 @@ const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 
-const { config, validate } = require('./config');
+const { config, validate, avertissements } = require('./config');
 const log = require('./utils/logger');
 const auth = require('./middleware/auth');
 const { entetes, limiteApi } = require('./middleware/security');
@@ -76,6 +76,7 @@ api.use('/rules', require('./routes/rules'));
 api.use('/system', require('./routes/system'));
 api.use('/chat', require('./routes/chat'));
 api.use('/update', require('./routes/update'));
+api.use('/reglages', require('./routes/reglages'));
 app.use('/api', api);
 
 /**
@@ -144,12 +145,26 @@ app.use((err, req, res, _next) => {
  * est precisement comme un defaut d'en-tete de cache passe inapercu.
  */
 function demarrer() {
+  /**
+   * Les reglages ranges en base sont poses sur `config` AVANT la validation.
+   *
+   * L'ordre compte : `validate()` refuse de demarrer si les identifiants de la
+   * boite manquent. Les lire apres aurait rendu impossible de configurer
+   * l'application depuis sa propre interface — il aurait fallu un `.env`
+   * complet pour pouvoir atteindre la page qui sert a s'en passer.
+   */
+  require('./services/reglages').appliquer();
+
   const fatals = validate();
   if (fatals.length) {
     for (const f of fatals) log.error(`Configuration : ${f}`);
     log.error('Demarrage interrompu. Corriger le fichier .env (voir .env.example).');
     process.exit(1);
   }
+
+  // Ce qui empeche un service de tourner, sans empecher de demarrer : c'est dit
+  // au journal, et montre dans l'onglet Parametres, ou cela se corrige.
+  for (const a of avertissements()) log.warn(`${a.service} : ${a.message}`);
 
   const server = app.listen(config.port, config.host, () => {
     log.info(`Inbox Agent sur http://${config.host}:${config.port} (${config.env}).`);
