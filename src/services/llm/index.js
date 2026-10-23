@@ -103,6 +103,9 @@ async function converser({ system, messages, tools, maxOutputTokens, temperature
   }
 }
 
+/** Le fournisseur actif sait-il tenir une conversation a outils (l'agent) ? */
+const gereLAgent = () => typeof actif().converser === 'function';
+
 function status() {
   const f = actif();
   const lignes = db
@@ -112,6 +115,7 @@ function status() {
     fournisseur: f.nom,
     configure: f.isConfigured(),
     modeles: { tri: modelePour('tri'), redaction: modelePour('redaction') },
+    gereLAgent: gereLAgent(),
     plafondJournalier: config.llm.dailyCallLimit,
     appelsDuJour: appelsDuJour(),
     appelsRestants: appelsRestants(),
@@ -122,4 +126,4 @@ function status() {
 const testConnection = () => actif().testConnection();
 const isConfigured = () => actif().isConfigured();
 
-module.exports = { askJson, converser, status, testConnection, isConfigured, appelsRestants, modelePour };
+module.exports = { askJson, converser, status, testConnection, isConfigured, appelsRestants, modelePour, gereLAgent };

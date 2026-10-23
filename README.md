@@ -420,6 +420,17 @@ c'est l'usage normal de cette application.
   mot de passe en service et la session ouverte n'ont pas été touchés. Reste
   inchangé : `IMAP_ENABLED=false`, donc l'application tourne encore à vide côté
   courrier.
+- **23/10/2026** — **Gemini réglable depuis l'onglet.** La clef d'API Google
+  sort des « réglages avancés » — elle y était enterrée au moment précis où elle
+  devient celle qui compte — et la **révision d'API** devient réglable : elle est
+  épinglée volontairement, sans quoi une évolution du service change le
+  comportement du tri du jour au lendemain. Surtout, l'onglet **prévient
+  désormais qu'un fournisseur sans boucle à outils éteint l'agent** : le tri et
+  la rédaction marchent avec les deux, mais l'onglet Agent et les questions
+  posées dans le salon ont besoin d'une conversation à outils, que seul Claude
+  implémente. Sans cet avertissement, l'agent répondait « le fournisseur ne gère
+  pas la conversation à outils » à chaque question, sans qu'on sache que c'était
+  un choix de réglage.
 - **23/10/2026** — **Onglet Paramètres.** Le mot de passe d'application Google,
   la clef d'API du modèle, l'envoi, le tri, le courrier confidentiel et le salon
   se règlent désormais depuis l'interface, sans toucher au `.env` ni redémarrer :

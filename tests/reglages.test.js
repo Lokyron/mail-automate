@@ -174,3 +174,26 @@ test('un salon sans liste blanche ne démarre pas, mais ne bloque rien', async (
   assert.equal(bot.status().actif, false, 'le salon ne doit pas tourner sans liste blanche');
   await reglages.enregistrer({ BOT_ENABLED: 'false' });
 });
+
+test('choisir un fournisseur sans boucle à outils le dit, au lieu de laisser l’agent muet', async () => {
+  const { avertissements } = require('../src/config');
+  const llm = require('../src/services/llm');
+
+  await reglages.enregistrer({ LLM_PROVIDER: 'gemini' });
+  assert.equal(llm.gereLAgent(), false, 'gemini n’implémente pas encore la conversation à outils');
+  assert.ok(
+    reglages.etat().avertissements.some((a) => a.service === 'Agent'),
+    'l’onglet doit prévenir que l’agent ne répondra pas'
+  );
+  void avertissements;
+
+  await reglages.enregistrer({ LLM_PROVIDER: 'claude' });
+  assert.equal(llm.gereLAgent(), true);
+  assert.ok(!reglages.etat().avertissements.some((a) => a.service === 'Agent'));
+});
+
+test('la révision d’API Gemini est épinglable depuis l’interface', () => {
+  const champ = reglages.etat().reglages.find((r) => r.cle === 'GEMINI_API_REVISION');
+  assert.ok(champ, 'elle doit être réglable : une évolution du service ne doit pas changer le tri du jour au lendemain');
+  assert.equal(champ.avance, true, 'mais elle reste un réglage avancé');
+});

@@ -298,6 +298,31 @@ function avertissements() {
   if (!config.llm[config.llm.provider]?.apiKey)
     avis.push({ service: 'Modèle', message: `Aucune clef d'API pour « ${config.llm.provider} » : ni tri ni rédaction ne sont possibles.` });
 
+  /**
+   * Tous les fournisseurs ne savent pas tenir une conversation a outils.
+   *
+   * Le tri et la redaction marchent partout ; l'agent — l'onglet Agent et les
+   * questions posees dans le salon — a besoin d'une boucle a outils, que seul
+   * Claude implemente pour l'instant. Choisir l'autre fournisseur eteint donc
+   * l'agent, en silence si on ne le dit pas : l'onglet repondait « le
+   * fournisseur ne gere pas la conversation a outils » a chaque question, sans
+   * qu'on sache que c'etait un choix de reglage.
+   *
+   * Charge ici et non en tete de fichier : la facade du modele depend de cette
+   * configuration, l'inverse ne doit pas etre vrai au chargement.
+   */
+  try {
+    const llm = require('./services/llm');
+    if (!llm.gereLAgent()) {
+      avis.push({
+        service: 'Agent',
+        message:
+          `Le fournisseur « ${config.llm.provider} » ne gère pas la conversation à outils : ` +
+          'le tri et la rédaction fonctionnent, mais l’onglet Agent et les questions posées dans le salon resteront sans réponse.',
+      });
+    }
+  } catch { /* la facade n'est pas encore chargee : rien a dire */ }
+
   // Un bot sans liste blanche serait une porte ouverte sur une boite mail. Il
   // ne demarre pas (cf. services/bot/index.js) ; on dit pourquoi.
   if (config.bot.enabled) {
